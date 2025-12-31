@@ -23,8 +23,19 @@ A minimalist Android launcher that uses T9 keypad input to quickly find and laun
 
 ## Building
 
+**Termux:**
 ```bash
 gradle assembleDebug
+```
+
+**Linux/macOS:**
+```bash
+./gradlew assembleDebug
+```
+
+**Windows:**
+```bash
+gradlew.bat assembleDebug
 ```
 
 Output: `app/build/outputs/apk/debug/app-debug.apk`

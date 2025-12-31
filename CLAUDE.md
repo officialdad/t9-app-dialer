@@ -158,15 +158,27 @@ private val iconPackMappings = mutableMapOf<String, String>()
 - **Material Components**: 1.11.0
 - **Build Type**: Debug (minification disabled)
 
-### Building in Termux
+### Building
 
+**Termux (Android):**
 ```bash
 gradle assembleDebug
+```
+Note: Use `gradle` directly as the Gradle wrapper is not executable in Termux.
+
+**Linux/macOS:**
+```bash
+./gradlew assembleDebug
+```
+
+**Windows:**
+```bash
+gradlew.bat assembleDebug
 ```
 
 Output APK: `app/build/outputs/apk/debug/app-debug.apk`
 
-Note: In Termux environment, use `gradle` directly (not `./gradlew`) as the Gradle wrapper may not be executable.
+The Gradle wrapper (`gradlew`/`gradlew.bat`) ensures consistent build environment across platforms by downloading the correct Gradle version automatically. Termux requires system-installed Gradle instead.
 
 ## Icon Pack Format
 
