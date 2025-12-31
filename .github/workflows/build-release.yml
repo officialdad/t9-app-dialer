@@ -14,6 +14,9 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Remove Termux-specific AAPT2 path
+        run: sed -i 's/^android.aapt2FromMavenOverride=/#&/' gradle.properties
+
       - uses: WaterLemons2k/apk-action@v1
         with:
           keystore: ${{ secrets.KEYSTORE }}
