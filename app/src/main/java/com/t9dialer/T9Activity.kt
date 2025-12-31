@@ -90,22 +90,25 @@ class T9Activity : Activity() {
             '8' to "tuv", '9' to "wxyz", '0' to " "
         )
 
+        if (query.isEmpty()) return true
+
         val cleanName = appName.lowercase()
-        var nameIndex = 0
 
-        for (digit in query) {
+        // Check if query is longer than app name
+        if (query.length > cleanName.length) {
+            return false
+        }
+
+        // Match each digit position with corresponding character position
+        for (i in query.indices) {
+            val digit = query[i]
             val letters = t9Map[digit] ?: continue
+            val char = cleanName[i]
 
-            while (nameIndex < cleanName.length &&
-                   !letters.contains(cleanName[nameIndex])) {
-                nameIndex++
-            }
-
-            if (nameIndex >= cleanName.length) {
+            // The character at position i must be one of the letters for this digit
+            if (!letters.contains(char)) {
                 return false
             }
-
-            nameIndex++
         }
 
         return true
