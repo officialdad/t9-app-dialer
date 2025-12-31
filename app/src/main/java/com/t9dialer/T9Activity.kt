@@ -1,8 +1,15 @@
 package com.t9dialer
 
 import android.app.Activity
+import android.app.AlertDialog
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.ComponentName
+import android.content.Context
 import android.content.Intent
 import android.content.pm.ApplicationInfo
+import android.content.pm.PackageManager
+import android.content.res.Resources
 import android.graphics.drawable.Drawable
 import android.os.Bundle
 import android.text.SpannableString
@@ -14,15 +21,28 @@ import android.view.Gravity
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
+import android.widget.Toast
 import com.google.android.material.button.MaterialButton
+import org.xmlpull.v1.XmlPullParser
+import org.xmlpull.v1.XmlPullParserFactory
 
 class T9Activity : Activity() {
 
     private lateinit var appsContainer: LinearLayout
     private lateinit var allApps: List<AppInfo>
     private var currentQuery = ""
+    private var iconPackPackageName: String? = null
+    private var iconPackResources: Resources? = null
+    private var iconPackMappings: MutableMap<String, String> = mutableMapOf()
+    private val debugLog = StringBuilder()
 
     data class AppInfo(
+        val name: String,
+        val packageName: String,
+        val icon: Drawable
+    )
+
+    data class IconPackInfo(
         val name: String,
         val packageName: String,
         val icon: Drawable
@@ -38,6 +58,9 @@ class T9Activity : Activity() {
 
         appsContainer = findViewById(R.id.appsContainer)
 
+        // Load icon pack preference
+        loadIconPackPreference()
+
         // Load all installed apps
         loadInstalledApps()
 
@@ -46,6 +69,122 @@ class T9Activity : Activity() {
 
         // Show initial top 3 apps
         updateAppsList()
+    }
+
+    private fun loadIconPackPreference() {
+        val prefs = getSharedPreferences("T9Dialer", Context.MODE_PRIVATE)
+        iconPackPackageName = prefs.getString("icon_pack", null)
+
+        iconPackPackageName?.let { packageName ->
+            try {
+                iconPackResources = packageManager.getResourcesForApplication(packageName)
+                loadIconPackMappings(packageName)
+            } catch (e: PackageManager.NameNotFoundException) {
+                // Icon pack uninstalled, clear preference
+                iconPackPackageName = null
+                iconPackResources = null
+                iconPackMappings.clear()
+                prefs.edit().remove("icon_pack").apply()
+            }
+        }
+    }
+
+    private fun loadIconPackMappings(packageName: String) {
+        iconPackMappings.clear()
+        debugLog.clear()
+        val res = iconPackResources ?: return
+
+        debugLog.append("=== ICON PACK DEBUG ===\n")
+        debugLog.append("Package: $packageName\n\n")
+
+        try {
+            // Try to find appfilter in xml or raw resources
+            var appfilterId = res.getIdentifier("appfilter", "xml", packageName)
+            var isRawResource = false
+
+            if (appfilterId == 0) {
+                debugLog.append("appfilter not found in xml, trying raw...\n")
+                appfilterId = res.getIdentifier("appfilter", "raw", packageName)
+                isRawResource = true
+            }
+
+            if (appfilterId != 0) {
+                debugLog.append("✓ Found appfilter (ID: $appfilterId)\n")
+                debugLog.append("Type: ${if (isRawResource) "raw" else "xml"}\n\n")
+
+                val parser: XmlPullParser
+
+                if (isRawResource) {
+                    // For raw resources, open as input stream
+                    val inputStream = res.openRawResource(appfilterId)
+                    val factory = XmlPullParserFactory.newInstance()
+                    parser = factory.newPullParser()
+                    parser.setInput(inputStream, "UTF-8")
+                } else {
+                    // For xml resources, use getXml
+                    parser = res.getXml(appfilterId)
+                }
+
+                var eventType = parser.eventType
+                var itemCount = 0
+                val sampleMappings = mutableListOf<String>()
+
+                while (eventType != XmlPullParser.END_DOCUMENT) {
+                    if (eventType == XmlPullParser.START_TAG && parser.name == "item") {
+                        val component = parser.getAttributeValue(null, "component")
+                        val drawable = parser.getAttributeValue(null, "drawable")
+
+                        if (component != null && drawable != null) {
+                            // Handle multiple component name formats
+                            var componentPackage = component
+
+                            if (componentPackage.contains("ComponentInfo{")) {
+                                componentPackage = componentPackage
+                                    .substringAfter("ComponentInfo{")
+                                    .substringBefore("}")
+                            }
+
+                            if (componentPackage.contains("/")) {
+                                componentPackage = componentPackage.substringBefore("/")
+                            }
+
+                            iconPackMappings[componentPackage] = drawable
+                            itemCount++
+
+                            if (itemCount <= 5) {
+                                sampleMappings.add("$componentPackage -> $drawable")
+                            }
+                        }
+                    }
+                    eventType = parser.next()
+                }
+
+                debugLog.append("✓ Parsed successfully!\n")
+                debugLog.append("Total mappings: ${iconPackMappings.size}\n\n")
+                if (sampleMappings.isNotEmpty()) {
+                    debugLog.append("Sample mappings:\n")
+                    sampleMappings.forEach { debugLog.append("  $it\n") }
+                }
+            } else {
+                debugLog.append("✗ No appfilter found!\n\n")
+
+                // List all available XML resources
+                try {
+                    val fields = Class.forName("${packageName}.R\$xml").declaredFields
+                    if (fields.isNotEmpty()) {
+                        debugLog.append("Available XML resources:\n")
+                        fields.forEach { debugLog.append("  - ${it.name}\n") }
+                    } else {
+                        debugLog.append("No XML resources found\n")
+                    }
+                } catch (e: Exception) {
+                    debugLog.append("Could not list XML: ${e.message}\n")
+                }
+            }
+        } catch (e: Exception) {
+            debugLog.append("\n✗ ERROR: ${e.message}\n")
+            debugLog.append("${e.stackTraceToString()}\n")
+        }
     }
 
     private fun setKeyText(button: MaterialButton, number: String, letters: String, isRed: Boolean = false) {
@@ -103,9 +242,16 @@ class T9Activity : Activity() {
         findViewById<MaterialButton>(R.id.btn9).setOnClickListener { addDigit('9') }
 
         // Button 1: Clear/Reset
-        findViewById<MaterialButton>(R.id.btn1).setOnClickListener {
+        val clearButton = findViewById<MaterialButton>(R.id.btn1)
+        clearButton.setOnClickListener {
             currentQuery = ""
             updateAppsList()
+        }
+
+        // Long-press to open icon pack selector
+        clearButton.setOnLongClickListener {
+            showIconPackSelector()
+            true
         }
     }
 
@@ -122,10 +268,13 @@ class T9Activity : Activity() {
             .filter { (it.flags and ApplicationInfo.FLAG_SYSTEM) == 0 ||
                      pm.getLaunchIntentForPackage(it.packageName) != null }
             .map {
+                val defaultIcon = pm.getApplicationIcon(it)
+                val icon = getIconFromPack(it.packageName) ?: defaultIcon
+
                 AppInfo(
                     name = pm.getApplicationLabel(it).toString(),
                     packageName = it.packageName,
-                    icon = pm.getApplicationIcon(it)
+                    icon = icon
                 )
             }
             .sortedBy { it.name }
@@ -247,5 +396,189 @@ class T9Activity : Activity() {
             startActivity(intent)
             finish()
         }
+    }
+
+    private fun getInstalledIconPacks(): List<IconPackInfo> {
+        val iconPacks = mutableListOf<IconPackInfo>()
+
+        // Add "Default" option
+        iconPacks.add(IconPackInfo(
+            "Default (System Icons)",
+            "",
+            getDrawable(android.R.drawable.sym_def_app_icon)!!
+        ))
+
+        val pm = packageManager
+        val processedPackages = mutableSetOf<String>()
+
+        // Check for ADW/Nova launcher icon packs
+        val adwIntent = Intent("org.adw.launcher.THEMES")
+        adwIntent.addCategory("com.anddoes.launcher.THEME")
+        val adwPackages = pm.queryIntentActivities(adwIntent, 0)
+        for (info in adwPackages) {
+            val packageName = info.activityInfo.packageName
+            if (processedPackages.add(packageName)) {
+                try {
+                    val appInfo = pm.getApplicationInfo(packageName, 0)
+                    iconPacks.add(IconPackInfo(
+                        pm.getApplicationLabel(appInfo).toString(),
+                        packageName,
+                        pm.getApplicationIcon(appInfo)
+                    ))
+                } catch (e: Exception) {
+                    // Skip this icon pack
+                }
+            }
+        }
+
+        // Check for Icon Pack Studio / GO Launcher icon packs
+        val goIntent = Intent("com.gau.go.launcherex.theme")
+        val goPackages = pm.queryIntentActivities(goIntent, 0)
+        for (info in goPackages) {
+            val packageName = info.activityInfo.packageName
+            if (processedPackages.add(packageName)) {
+                try {
+                    val appInfo = pm.getApplicationInfo(packageName, 0)
+                    iconPacks.add(IconPackInfo(
+                        pm.getApplicationLabel(appInfo).toString(),
+                        packageName,
+                        pm.getApplicationIcon(appInfo)
+                    ))
+                } catch (e: Exception) {
+                    // Skip this icon pack
+                }
+            }
+        }
+
+        // Check all apps for icon pack metadata (Icon Pack Studio apps)
+        val allApps = pm.getInstalledApplications(PackageManager.GET_META_DATA)
+        for (appInfo in allApps) {
+            val packageName = appInfo.packageName
+            if (processedPackages.contains(packageName)) continue
+
+            try {
+                val res = pm.getResourcesForApplication(packageName)
+                // Check if it has appfilter.xml (common in icon packs)
+                val appfilterId = res.getIdentifier("appfilter", "xml", packageName)
+                if (appfilterId != 0 && processedPackages.add(packageName)) {
+                    iconPacks.add(IconPackInfo(
+                        pm.getApplicationLabel(appInfo).toString(),
+                        packageName,
+                        pm.getApplicationIcon(appInfo)
+                    ))
+                }
+            } catch (e: Exception) {
+                // Skip this package
+            }
+        }
+
+        return iconPacks
+    }
+
+    private fun showIconPackSelector() {
+        val iconPacks = getInstalledIconPacks()
+        val packNames = iconPacks.map { it.name }.toTypedArray()
+
+        // Find currently selected icon pack index
+        val currentSelection = iconPacks.indexOfFirst {
+            it.packageName == (iconPackPackageName ?: "")
+        }
+
+        AlertDialog.Builder(this)
+            .setTitle("Select Icon Pack")
+            .setSingleChoiceItems(packNames, currentSelection) { dialog, which ->
+                val selectedPack = iconPacks[which]
+
+                // Save preference
+                val prefs = getSharedPreferences("T9Dialer", Context.MODE_PRIVATE)
+                if (selectedPack.packageName.isEmpty()) {
+                    // Default selected
+                    prefs.edit().remove("icon_pack").apply()
+                    iconPackPackageName = null
+                    iconPackResources = null
+                    iconPackMappings.clear()
+                } else {
+                    prefs.edit().putString("icon_pack", selectedPack.packageName).apply()
+                    iconPackPackageName = selectedPack.packageName
+                    try {
+                        iconPackResources = packageManager.getResourcesForApplication(selectedPack.packageName)
+                        loadIconPackMappings(selectedPack.packageName)
+                    } catch (e: PackageManager.NameNotFoundException) {
+                        iconPackResources = null
+                        iconPackMappings.clear()
+                    }
+                }
+
+                // Reload apps with new icons
+                loadInstalledApps()
+                updateAppsList()
+
+                // Show feedback message
+                if (selectedPack.packageName.isEmpty()) {
+                    Toast.makeText(this, "Using default system icons", Toast.LENGTH_SHORT).show()
+                } else {
+                    val iconCount = iconPackMappings.size
+                    val message = if (iconCount > 0) {
+                        "${selectedPack.name}\n$iconCount icons loaded successfully"
+                    } else {
+                        "${selectedPack.name}\nNo icon mappings found"
+                    }
+                    Toast.makeText(this, message, Toast.LENGTH_LONG).show()
+                }
+
+                dialog.dismiss()
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
+    }
+
+    private fun getIconFromPack(packageName: String): Drawable? {
+        if (iconPackResources == null || iconPackPackageName == null) {
+            return null
+        }
+
+        try {
+            // First, try to use appfilter.xml mapping (Icon Pack Studio format)
+            val mappedDrawable = iconPackMappings[packageName]
+            if (mappedDrawable != null) {
+                val resId = iconPackResources?.getIdentifier(
+                    mappedDrawable,
+                    "drawable",
+                    iconPackPackageName
+                ) ?: 0
+
+                if (resId != 0) {
+                    return iconPackResources?.getDrawable(resId, null)
+                }
+            }
+
+            // Fallback: Try common icon pack naming schemes
+            val drawableName = packageName.replace(".", "_")
+
+            // Try various naming patterns
+            val patterns = listOf(
+                drawableName,
+                "${drawableName}_icon",
+                "ic_${drawableName}",
+                packageName.substringAfterLast("."),
+                "ic_${packageName.substringAfterLast(".")}"
+            )
+
+            for (pattern in patterns) {
+                val resId = iconPackResources?.getIdentifier(
+                    pattern,
+                    "drawable",
+                    iconPackPackageName
+                ) ?: 0
+
+                if (resId != 0) {
+                    return iconPackResources?.getDrawable(resId, null)
+                }
+            }
+        } catch (e: Exception) {
+            // Silent fail, return null for fallback to system icon
+        }
+
+        return null
     }
 }
