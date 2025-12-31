@@ -16,6 +16,8 @@ import android.text.SpannableString
 import android.text.Spannable
 import android.text.style.ForegroundColorSpan
 import android.text.style.AbsoluteSizeSpan
+import android.text.style.StyleSpan
+import android.graphics.Typeface
 import android.util.TypedValue
 import android.view.Gravity
 import android.widget.ImageView
@@ -310,22 +312,21 @@ class T9Activity : Activity() {
         }
 
         // Filter and sort apps based on T9 query
-        val filteredApps = allApps
+        val matchedApps = allApps
             .mapNotNull { app -> getMatchInfo(app, currentQuery) }
             .sortedWith(compareBy<MatchInfo> { it.matchPriority }  // First by priority (0=beginning, 1=word, 2=substring)
                 .thenBy { it.app.name.length }                      // Then by name length (shorter first)
                 .thenBy { it.app.name })                            // Finally alphabetically
             .take(3)
-            .map { it.app }
 
         // Add top 3 apps to horizontal container
-        for (app in filteredApps) {
-            val appView = createAppView(app)
+        for (matchInfo in matchedApps) {
+            val appView = createAppView(matchInfo)
             appsContainer.addView(appView)
         }
 
         // Show message if no matches
-        if (filteredApps.isEmpty() && currentQuery.isNotEmpty()) {
+        if (matchedApps.isEmpty() && currentQuery.isNotEmpty()) {
             val noMatchView = TextView(this).apply {
                 text = "No matches"
                 textSize = 14f
@@ -336,26 +337,45 @@ class T9Activity : Activity() {
         }
     }
 
-    private fun createAppView(app: AppInfo): LinearLayout {
+    private fun createAppView(matchInfo: MatchInfo): LinearLayout {
         return LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER
             setPadding(dpToPx(12), dpToPx(8), dpToPx(12), dpToPx(8))
 
-            val iconSize = dpToPx(75)
+            val iconSize = dpToPx(90)  // Increased from 75dp to 90dp (20% larger)
             val icon = ImageView(this@T9Activity).apply {
-                setImageDrawable(app.icon)
+                setImageDrawable(matchInfo.app.icon)
                 layoutParams = LinearLayout.LayoutParams(iconSize, iconSize)
             }
 
             val label = TextView(this@T9Activity).apply {
-                text = app.name
-                textSize = 12f
+                // Highlight the matched portion of the app name
+                val spannable = SpannableString(matchInfo.app.name)
+                val matchStart = matchInfo.matchPosition
+                val matchEnd = matchStart + currentQuery.length
+
+                // Make matched text white and bold
+                spannable.setSpan(
+                    ForegroundColorSpan(getColor(R.color.app_text_highlight)),
+                    matchStart,
+                    matchEnd,
+                    Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
+                )
+                spannable.setSpan(
+                    StyleSpan(Typeface.BOLD),
+                    matchStart,
+                    matchEnd,
+                    Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
+                )
+
+                text = spannable
+                textSize = 13f  // Increased from 12f for better readability
                 setTextColor(getColor(R.color.app_text)) // Light gray text for dark theme
                 gravity = Gravity.CENTER
                 maxLines = 2
                 layoutParams = LinearLayout.LayoutParams(
-                    dpToPx(85),
+                    dpToPx(102),  // Increased from 85dp to accommodate larger icons
                     LinearLayout.LayoutParams.WRAP_CONTENT
                 ).apply {
                     topMargin = dpToPx(6)
@@ -367,7 +387,7 @@ class T9Activity : Activity() {
 
             // Launch app on click
             setOnClickListener {
-                launchApp(app.packageName)
+                launchApp(matchInfo.app.packageName)
             }
 
             // Make it look clickable

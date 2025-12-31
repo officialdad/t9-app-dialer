@@ -21,7 +21,7 @@
     <!-- Top 3 Apps (Horizontal, Centered) - Fixed height area -->
     <HorizontalScrollView
         android:layout_width="match_parent"
-        android:layout_height="120dp"
+        android:layout_height="150dp"
         android:scrollbars="none"
         android:layout_marginTop="24dp"
         android:layout_marginBottom="12dp">
