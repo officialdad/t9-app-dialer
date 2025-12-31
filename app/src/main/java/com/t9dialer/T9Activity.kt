@@ -268,21 +268,27 @@ class T9Activity : Activity() {
 
     private fun loadInstalledApps() {
         val pm = packageManager
-        val packages = pm.getInstalledApplications(0)
 
-        allApps = packages
-            .filter { (it.flags and ApplicationInfo.FLAG_SYSTEM) == 0 ||
-                     pm.getLaunchIntentForPackage(it.packageName) != null }
-            .map {
-                val defaultIcon = pm.getApplicationIcon(it)
-                val icon = getIconFromPack(it.packageName) ?: defaultIcon
+        // Query only apps with LAUNCHER intent (same as default launcher)
+        val mainIntent = Intent(Intent.ACTION_MAIN, null).apply {
+            addCategory(Intent.CATEGORY_LAUNCHER)
+        }
+
+        val launcherActivities = pm.queryIntentActivities(mainIntent, 0)
+
+        allApps = launcherActivities
+            .map { resolveInfo ->
+                val packageName = resolveInfo.activityInfo.packageName
+                val defaultIcon = resolveInfo.loadIcon(pm)
+                val icon = getIconFromPack(packageName) ?: defaultIcon
 
                 AppInfo(
-                    name = pm.getApplicationLabel(it).toString(),
-                    packageName = it.packageName,
+                    name = resolveInfo.loadLabel(pm).toString(),
+                    packageName = packageName,
                     icon = icon
                 )
             }
+            .distinctBy { it.packageName }  // Remove duplicates if any app has multiple launcher activities
             .sortedBy { it.name }
     }
 
@@ -376,24 +382,38 @@ class T9Activity : Activity() {
 
         val cleanName = appName.lowercase()
 
-        // Check if query is longer than app name
-        if (query.length > cleanName.length) {
-            return false
+        // Helper function to check if query matches at a specific position
+        fun matchesAtPosition(startPos: Int): Boolean {
+            if (startPos + query.length > cleanName.length) return false
+
+            for (i in query.indices) {
+                val digit = query[i]
+                val letters = t9Map[digit] ?: continue
+                val char = cleanName[startPos + i]
+
+                if (!letters.contains(char)) {
+                    return false
+                }
+            }
+            return true
         }
 
-        // Match each digit position with corresponding character position
-        for (i in query.indices) {
-            val digit = query[i]
-            val letters = t9Map[digit] ?: continue
-            val char = cleanName[i]
+        // 1. Try matching from the beginning (highest priority)
+        if (matchesAtPosition(0)) return true
 
-            // The character at position i must be one of the letters for this digit
-            if (!letters.contains(char)) {
-                return false
+        // 2. Try matching from the start of each word
+        for (i in cleanName.indices) {
+            if (i > 0 && (cleanName[i - 1] == ' ' || !cleanName[i - 1].isLetter())) {
+                if (matchesAtPosition(i)) return true
             }
         }
 
-        return true
+        // 3. Try matching anywhere in the name
+        for (i in cleanName.indices) {
+            if (matchesAtPosition(i)) return true
+        }
+
+        return false
     }
 
     private fun launchApp(packageName: String) {
