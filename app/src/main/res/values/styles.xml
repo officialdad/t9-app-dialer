@@ -6,7 +6,7 @@
         <item name="backgroundTint">@android:color/transparent</item>
         <item name="android:textSize">20sp</item>
         <item name="android:textColor">@color/key_number</item>
-        <item name="android:minHeight">60dp</item>
+        <item name="android:minHeight">75dp</item>
         <item name="android:stateListAnimator">@null</item>
         <item name="elevation">0dp</item>
         <!-- Ripple color set programmatically based on theme -->
