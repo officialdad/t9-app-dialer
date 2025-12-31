@@ -158,6 +158,16 @@ private val iconPackMappings = mutableMapOf<String, String>()
 - **Material Components**: 1.11.0
 - **Build Type**: Debug (minification disabled)
 
+### Building in Termux
+
+```bash
+gradle assembleDebug
+```
+
+Output APK: `app/build/outputs/apk/debug/app-debug.apk`
+
+Note: In Termux environment, use `gradle` directly (not `./gradlew`) as the Gradle wrapper may not be executable.
+
 ## Icon Pack Format
 
 Supported `appfilter.xml` structure:
