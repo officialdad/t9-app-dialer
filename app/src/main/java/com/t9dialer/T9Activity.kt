@@ -29,7 +29,8 @@ import org.xmlpull.v1.XmlPullParserFactory
 class T9Activity : Activity() {
 
     private lateinit var appsContainer: LinearLayout
-    private lateinit var allApps: List<AppInfo>
+    private var allApps: List<AppInfo> = emptyList()
+    private var appsLoaded = false
     private var currentQuery = ""
     private var iconPackPackageName: String? = null
     private var iconPackResources: Resources? = null
@@ -61,14 +62,10 @@ class T9Activity : Activity() {
         // Load icon pack preference
         loadIconPackPreference()
 
-        // Load all installed apps
-        loadInstalledApps()
-
         // Set up T9 keyboard buttons
         setupKeyboard()
 
-        // Show initial top 3 apps
-        updateAppsList()
+        // Apps will be loaded on first key press for faster startup
     }
 
     private fun loadIconPackPreference() {
@@ -262,6 +259,12 @@ class T9Activity : Activity() {
     }
 
     private fun addDigit(digit: Char) {
+        // Load apps on first key press
+        if (!appsLoaded) {
+            loadInstalledApps()
+            appsLoaded = true
+        }
+
         currentQuery += digit
         updateAppsList()
     }
@@ -295,14 +298,15 @@ class T9Activity : Activity() {
     private fun updateAppsList() {
         appsContainer.removeAllViews()
 
-        // Filter apps based on T9 query
-        val filteredApps = if (currentQuery.isEmpty()) {
-            allApps.take(3)
-        } else {
-            allApps
-                .filter { matchesT9(it.name, currentQuery) }
-                .take(3)
+        // Only show apps when there's a search query
+        if (currentQuery.isEmpty()) {
+            return
         }
+
+        // Filter apps based on T9 query
+        val filteredApps = allApps
+            .filter { matchesT9(it.name, currentQuery) }
+            .take(3)
 
         // Add top 3 apps to horizontal container
         for (app in filteredApps) {
