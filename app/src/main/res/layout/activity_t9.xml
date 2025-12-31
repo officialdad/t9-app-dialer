@@ -3,30 +3,130 @@
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:orientation="vertical"
-    android:padding="16dp">
+    android:padding="16dp"
+    android:background="#FFFFFF">
 
-    <TextView
+    <!-- Top 3 Apps (Horizontal, Centered, Bigger) -->
+    <HorizontalScrollView
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="@string/app_name"
-        android:textSize="24sp"
-        android:textStyle="bold"
-        android:gravity="center"
-        android:paddingBottom="16dp" />
+        android:scrollbars="none"
+        android:layout_marginTop="20dp"
+        android:layout_marginBottom="30dp">
 
-    <EditText
-        android:id="@+id/searchInput"
+        <LinearLayout
+            android:id="@+id/appsContainer"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center"
+            android:layout_gravity="center">
+            <!-- App items will be added programmatically -->
+        </LinearLayout>
+    </HorizontalScrollView>
+
+    <!-- T9 Keyboard (3x3 grid, buttons 1-9 only) -->
+    <GridLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:hint="@string/search_hint"
-        android:inputType="number"
-        android:textSize="18sp"
-        android:padding="12dp" />
+        android:columnCount="3"
+        android:rowCount="3"
+        android:alignmentMode="alignBounds"
+        android:useDefaultMargins="false">
 
-    <ListView
-        android:id="@+id/appsList"
-        android:layout_width="match_parent"
-        android:layout_height="300dp"
-        android:layout_marginTop="16dp" />
+        <!-- Row 1: 1, 2, 3 -->
+        <Button
+            android:id="@+id/btn1"
+            android:layout_width="0dp"
+            android:layout_height="80dp"
+            android:layout_columnWeight="1"
+            android:layout_margin="4dp"
+            android:text="1\nCLEAR"
+            android:textSize="16sp"
+            android:backgroundTint="#FF5252" />
+
+        <Button
+            android:id="@+id/btn2"
+            android:layout_width="0dp"
+            android:layout_height="80dp"
+            android:layout_columnWeight="1"
+            android:layout_margin="4dp"
+            android:text="2\nABC"
+            android:textSize="16sp"
+            android:backgroundTint="#4CAF50" />
+
+        <Button
+            android:id="@+id/btn3"
+            android:layout_width="0dp"
+            android:layout_height="80dp"
+            android:layout_columnWeight="1"
+            android:layout_margin="4dp"
+            android:text="3\nDEF"
+            android:textSize="16sp"
+            android:backgroundTint="#4CAF50" />
+
+        <!-- Row 2: 4, 5, 6 -->
+        <Button
+            android:id="@+id/btn4"
+            android:layout_width="0dp"
+            android:layout_height="80dp"
+            android:layout_columnWeight="1"
+            android:layout_margin="4dp"
+            android:text="4\nGHI"
+            android:textSize="16sp"
+            android:backgroundTint="#4CAF50" />
+
+        <Button
+            android:id="@+id/btn5"
+            android:layout_width="0dp"
+            android:layout_height="80dp"
+            android:layout_columnWeight="1"
+            android:layout_margin="4dp"
+            android:text="5\nJKL"
+            android:textSize="16sp"
+            android:backgroundTint="#4CAF50" />
+
+        <Button
+            android:id="@+id/btn6"
+            android:layout_width="0dp"
+            android:layout_height="80dp"
+            android:layout_columnWeight="1"
+            android:layout_margin="4dp"
+            android:text="6\nMNO"
+            android:textSize="16sp"
+            android:backgroundTint="#4CAF50" />
+
+        <!-- Row 3: 7, 8, 9 -->
+        <Button
+            android:id="@+id/btn7"
+            android:layout_width="0dp"
+            android:layout_height="80dp"
+            android:layout_columnWeight="1"
+            android:layout_margin="4dp"
+            android:text="7\nPQRS"
+            android:textSize="16sp"
+            android:backgroundTint="#4CAF50" />
+
+        <Button
+            android:id="@+id/btn8"
+            android:layout_width="0dp"
+            android:layout_height="80dp"
+            android:layout_columnWeight="1"
+            android:layout_margin="4dp"
+            android:text="8\nTUV"
+            android:textSize="16sp"
+            android:backgroundTint="#4CAF50" />
+
+        <Button
+            android:id="@+id/btn9"
+            android:layout_width="0dp"
+            android:layout_height="80dp"
+            android:layout_columnWeight="1"
+            android:layout_margin="4dp"
+            android:text="9\nWXYZ"
+            android:textSize="16sp"
+            android:backgroundTint="#4CAF50" />
+
+    </GridLayout>
 
 </LinearLayout>

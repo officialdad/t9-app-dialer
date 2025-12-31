@@ -3,59 +3,63 @@ package com.t9dialer
 import android.app.Activity
 import android.content.Intent
 import android.content.pm.ApplicationInfo
+import android.graphics.drawable.Drawable
 import android.os.Bundle
-import android.text.Editable
-import android.text.TextWatcher
-import android.widget.ArrayAdapter
-import android.widget.EditText
-import android.widget.ListView
+import android.view.Gravity
+import android.widget.Button
+import android.widget.ImageView
+import android.widget.LinearLayout
+import android.widget.TextView
 
 class T9Activity : Activity() {
 
-    private lateinit var searchInput: EditText
-    private lateinit var appsList: ListView
+    private lateinit var appsContainer: LinearLayout
     private lateinit var allApps: List<AppInfo>
-    private lateinit var adapter: ArrayAdapter<String>
+    private var currentQuery = ""
 
-    data class AppInfo(val name: String, val packageName: String)
+    data class AppInfo(
+        val name: String,
+        val packageName: String,
+        val icon: Drawable
+    )
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_t9)
 
-        searchInput = findViewById(R.id.searchInput)
-        appsList = findViewById(R.id.appsList)
+        appsContainer = findViewById(R.id.appsContainer)
 
         // Load all installed apps
         loadInstalledApps()
 
-        // Set up adapter
-        adapter = ArrayAdapter(this, android.R.layout.simple_list_item_1, allApps.map { it.name })
-        appsList.adapter = adapter
+        // Set up T9 keyboard buttons
+        setupKeyboard()
 
-        // Set up search listener
-        searchInput.addTextChangedListener(object : TextWatcher {
-            override fun afterTextChanged(s: Editable?) {
-                val query = s.toString()
-                filterApps(query)
-            }
+        // Show initial top 3 apps
+        updateAppsList()
+    }
 
-            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
-            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
-        })
+    private fun setupKeyboard() {
+        // Number buttons 2-9
+        findViewById<Button>(R.id.btn2).setOnClickListener { addDigit('2') }
+        findViewById<Button>(R.id.btn3).setOnClickListener { addDigit('3') }
+        findViewById<Button>(R.id.btn4).setOnClickListener { addDigit('4') }
+        findViewById<Button>(R.id.btn5).setOnClickListener { addDigit('5') }
+        findViewById<Button>(R.id.btn6).setOnClickListener { addDigit('6') }
+        findViewById<Button>(R.id.btn7).setOnClickListener { addDigit('7') }
+        findViewById<Button>(R.id.btn8).setOnClickListener { addDigit('8') }
+        findViewById<Button>(R.id.btn9).setOnClickListener { addDigit('9') }
 
-        // Launch app on click
-        appsList.setOnItemClickListener { _, _, position, _ ->
-            val filteredApps = if (searchInput.text.isEmpty()) {
-                allApps
-            } else {
-                allApps.filter { matchesT9(it.name, searchInput.text.toString()) }
-            }
-
-            if (position < filteredApps.size) {
-                launchApp(filteredApps[position].packageName)
-            }
+        // Button 1: Clear/Reset
+        findViewById<Button>(R.id.btn1).setOnClickListener {
+            currentQuery = ""
+            updateAppsList()
         }
+    }
+
+    private fun addDigit(digit: Char) {
+        currentQuery += digit
+        updateAppsList()
     }
 
     private fun loadInstalledApps() {
@@ -65,29 +69,91 @@ class T9Activity : Activity() {
         allApps = packages
             .filter { (it.flags and ApplicationInfo.FLAG_SYSTEM) == 0 ||
                      pm.getLaunchIntentForPackage(it.packageName) != null }
-            .map { AppInfo(pm.getApplicationLabel(it).toString(), it.packageName) }
+            .map {
+                AppInfo(
+                    name = pm.getApplicationLabel(it).toString(),
+                    packageName = it.packageName,
+                    icon = pm.getApplicationIcon(it)
+                )
+            }
             .sortedBy { it.name }
     }
 
-    private fun filterApps(query: String) {
-        if (query.isEmpty()) {
-            adapter.clear()
-            adapter.addAll(allApps.map { it.name })
+    private fun updateAppsList() {
+        appsContainer.removeAllViews()
+
+        // Filter apps based on T9 query
+        val filteredApps = if (currentQuery.isEmpty()) {
+            allApps.take(3)
         } else {
-            val filtered = allApps
-                .filter { matchesT9(it.name, query) }
-                .map { it.name }
-            adapter.clear()
-            adapter.addAll(filtered)
+            allApps
+                .filter { matchesT9(it.name, currentQuery) }
+                .take(3)
         }
-        adapter.notifyDataSetChanged()
+
+        // Add top 3 apps to horizontal container
+        for (app in filteredApps) {
+            val appView = createAppView(app)
+            appsContainer.addView(appView)
+        }
+
+        // Show message if no matches
+        if (filteredApps.isEmpty() && currentQuery.isNotEmpty()) {
+            val noMatchView = TextView(this).apply {
+                text = "No matches"
+                textSize = 18f
+                setPadding(40, 40, 40, 40)
+                gravity = Gravity.CENTER
+            }
+            appsContainer.addView(noMatchView)
+        }
+    }
+
+    private fun createAppView(app: AppInfo): LinearLayout {
+        return LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER
+            setPadding(24, 16, 24, 16)
+
+            val iconSize = 150
+            val icon = ImageView(this@T9Activity).apply {
+                setImageDrawable(app.icon)
+                layoutParams = LinearLayout.LayoutParams(iconSize, iconSize)
+            }
+
+            val label = TextView(this@T9Activity).apply {
+                text = app.name
+                textSize = 16f
+                gravity = Gravity.CENTER
+                maxLines = 2
+                layoutParams = LinearLayout.LayoutParams(
+                    iconSize + 20,
+                    LinearLayout.LayoutParams.WRAP_CONTENT
+                ).apply {
+                    topMargin = 12
+                }
+            }
+
+            addView(icon)
+            addView(label)
+
+            // Launch app on click
+            setOnClickListener {
+                launchApp(app.packageName)
+            }
+
+            // Make it look clickable
+            isClickable = true
+            isFocusable = true
+            setBackgroundResource(android.R.drawable.list_selector_background)
+        }
     }
 
     private fun matchesT9(appName: String, query: String): Boolean {
         val t9Map = mapOf(
             '2' to "abc", '3' to "def", '4' to "ghi",
             '5' to "jkl", '6' to "mno", '7' to "pqrs",
-            '8' to "tuv", '9' to "wxyz", '0' to " "
+            '8' to "tuv", '9' to "wxyz"
         )
 
         if (query.isEmpty()) return true
