@@ -49,6 +49,12 @@ class T9Activity : Activity() {
         val icon: Drawable
     )
 
+    data class MatchInfo(
+        val app: AppInfo,
+        val matchPosition: Int,      // Position where match was found
+        val matchPriority: Int        // 0 = beginning, 1 = word start, 2 = substring
+    )
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
@@ -303,10 +309,14 @@ class T9Activity : Activity() {
             return
         }
 
-        // Filter apps based on T9 query
+        // Filter and sort apps based on T9 query
         val filteredApps = allApps
-            .filter { matchesT9(it.name, currentQuery) }
+            .mapNotNull { app -> getMatchInfo(app, currentQuery) }
+            .sortedWith(compareBy<MatchInfo> { it.matchPriority }  // First by priority (0=beginning, 1=word, 2=substring)
+                .thenBy { it.app.name.length }                      // Then by name length (shorter first)
+                .thenBy { it.app.name })                            // Finally alphabetically
             .take(3)
+            .map { it.app }
 
         // Add top 3 apps to horizontal container
         for (app in filteredApps) {
@@ -375,16 +385,16 @@ class T9Activity : Activity() {
         ).toInt()
     }
 
-    private fun matchesT9(appName: String, query: String): Boolean {
+    private fun getMatchInfo(app: AppInfo, query: String): MatchInfo? {
         val t9Map = mapOf(
             '2' to "abc", '3' to "def", '4' to "ghi",
             '5' to "jkl", '6' to "mno", '7' to "pqrs",
             '8' to "tuv", '9' to "wxyz"
         )
 
-        if (query.isEmpty()) return true
+        if (query.isEmpty()) return null
 
-        val cleanName = appName.lowercase()
+        val cleanName = app.name.lowercase()
 
         // Helper function to check if query matches at a specific position
         fun matchesAtPosition(startPos: Int): Boolean {
@@ -403,21 +413,27 @@ class T9Activity : Activity() {
         }
 
         // 1. Try matching from the beginning (highest priority)
-        if (matchesAtPosition(0)) return true
+        if (matchesAtPosition(0)) {
+            return MatchInfo(app, 0, 0)
+        }
 
-        // 2. Try matching from the start of each word
+        // 2. Try matching from the start of each word (medium priority)
         for (i in cleanName.indices) {
             if (i > 0 && (cleanName[i - 1] == ' ' || !cleanName[i - 1].isLetter())) {
-                if (matchesAtPosition(i)) return true
+                if (matchesAtPosition(i)) {
+                    return MatchInfo(app, i, 1)
+                }
             }
         }
 
-        // 3. Try matching anywhere in the name
+        // 3. Try matching anywhere in the name (lowest priority)
         for (i in cleanName.indices) {
-            if (matchesAtPosition(i)) return true
+            if (matchesAtPosition(i)) {
+                return MatchInfo(app, i, 2)
+            }
         }
 
-        return false
+        return null
     }
 
     private fun launchApp(packageName: String) {
