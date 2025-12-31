@@ -56,7 +56,10 @@
                 android:layout_height="60dp"
                 android:layout_weight="1"
                 android:layout_margin="2dp"
-                android:text="1\nCLEAR" />
+                android:text="1\nCLEAR"
+                android:foreground="@drawable/button_ripple_red"
+                android:clickable="true"
+                android:focusable="true" />
 
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/btn2"
@@ -65,7 +68,10 @@
                 android:layout_height="60dp"
                 android:layout_weight="1"
                 android:layout_margin="2dp"
-                android:text="2\nABC" />
+                android:text="2\nABC"
+                android:foreground="@drawable/button_ripple"
+                android:clickable="true"
+                android:focusable="true" />
 
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/btn3"
@@ -74,7 +80,10 @@
                 android:layout_height="60dp"
                 android:layout_weight="1"
                 android:layout_margin="2dp"
-                android:text="3\nDEF" />
+                android:text="3\nDEF"
+                android:foreground="@drawable/button_ripple"
+                android:clickable="true"
+                android:focusable="true" />
         </LinearLayout>
 
         <!-- Row 2: 4, 5, 6 -->
@@ -90,7 +99,10 @@
                 android:layout_height="60dp"
                 android:layout_weight="1"
                 android:layout_margin="2dp"
-                android:text="4\nGHI" />
+                android:text="4\nGHI"
+                android:foreground="@drawable/button_ripple"
+                android:clickable="true"
+                android:focusable="true" />
 
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/btn5"
@@ -99,7 +111,10 @@
                 android:layout_height="60dp"
                 android:layout_weight="1"
                 android:layout_margin="2dp"
-                android:text="5\nJKL" />
+                android:text="5\nJKL"
+                android:foreground="@drawable/button_ripple"
+                android:clickable="true"
+                android:focusable="true" />
 
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/btn6"
@@ -108,7 +123,10 @@
                 android:layout_height="60dp"
                 android:layout_weight="1"
                 android:layout_margin="2dp"
-                android:text="6\nMNO" />
+                android:text="6\nMNO"
+                android:foreground="@drawable/button_ripple"
+                android:clickable="true"
+                android:focusable="true" />
         </LinearLayout>
 
         <!-- Row 3: 7, 8, 9 -->
@@ -124,7 +142,10 @@
                 android:layout_height="60dp"
                 android:layout_weight="1"
                 android:layout_margin="2dp"
-                android:text="7\nPQRS" />
+                android:text="7\nPQRS"
+                android:foreground="@drawable/button_ripple"
+                android:clickable="true"
+                android:focusable="true" />
 
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/btn8"
@@ -133,7 +154,10 @@
                 android:layout_height="60dp"
                 android:layout_weight="1"
                 android:layout_margin="2dp"
-                android:text="8\nTUV" />
+                android:text="8\nTUV"
+                android:foreground="@drawable/button_ripple"
+                android:clickable="true"
+                android:focusable="true" />
 
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/btn9"
@@ -142,7 +166,10 @@
                 android:layout_height="60dp"
                 android:layout_weight="1"
                 android:layout_margin="2dp"
-                android:text="9\nWXYZ" />
+                android:text="9\nWXYZ"
+                android:foreground="@drawable/button_ripple"
+                android:clickable="true"
+                android:focusable="true" />
         </LinearLayout>
 
     </LinearLayout>

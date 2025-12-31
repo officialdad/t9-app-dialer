@@ -231,6 +231,13 @@ class T9Activity : Activity() {
         setKeyText(findViewById(R.id.btn8), "8", "TUV")
         setKeyText(findViewById(R.id.btn9), "9", "WXYZ")
 
+        // Button 1: Add settings icon
+        val clearButton = findViewById<MaterialButton>(R.id.btn1)
+        val settingsIcon = getDrawable(R.drawable.ic_settings)
+        settingsIcon?.setBounds(0, 0, dpToPx(16), dpToPx(16))
+        clearButton.setCompoundDrawables(null, null, settingsIcon, null)
+        clearButton.compoundDrawablePadding = dpToPx(4)
+
         // Number buttons 2-9
         findViewById<MaterialButton>(R.id.btn2).setOnClickListener { addDigit('2') }
         findViewById<MaterialButton>(R.id.btn3).setOnClickListener { addDigit('3') }
@@ -242,7 +249,6 @@ class T9Activity : Activity() {
         findViewById<MaterialButton>(R.id.btn9).setOnClickListener { addDigit('9') }
 
         // Button 1: Clear/Reset
-        val clearButton = findViewById<MaterialButton>(R.id.btn1)
         clearButton.setOnClickListener {
             currentQuery = ""
             updateAppsList()
@@ -514,17 +520,22 @@ class T9Activity : Activity() {
                 updateAppsList()
 
                 // Show feedback message
-                if (selectedPack.packageName.isEmpty()) {
-                    Toast.makeText(this, "Using default system icons", Toast.LENGTH_SHORT).show()
+                val message = if (selectedPack.packageName.isEmpty()) {
+                    "Using default icons"
                 } else {
                     val iconCount = iconPackMappings.size
-                    val message = if (iconCount > 0) {
-                        "${selectedPack.name}\n$iconCount icons loaded successfully"
+                    if (iconCount > 0) {
+                        "Icon pack applied"
                     } else {
-                        "${selectedPack.name}\nNo icon mappings found"
+                        "No icons found in pack"
                     }
-                    Toast.makeText(this, message, Toast.LENGTH_LONG).show()
                 }
+
+                // Create toast without icon
+                val toast = Toast.makeText(this, message, Toast.LENGTH_SHORT)
+                val toastView = toast.view
+                toastView?.findViewById<ImageView>(android.R.id.icon)?.visibility = android.view.View.GONE
+                toast.show()
 
                 dialog.dismiss()
             }
