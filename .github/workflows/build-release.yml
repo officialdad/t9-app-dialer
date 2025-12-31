@@ -17,19 +17,50 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Get repository base name and set as environment variable
+        run: echo "REPO_NAME=$(basename ${{ github.repository }})" >> $GITHUB_ENV
+
       - name: Remove Termux-specific AAPT2 path
         run: sed -i 's/^android.aapt2FromMavenOverride=/#&/' gradle.properties
 
-      - uses: WaterLemons2k/apk-action@v1
+      - name: Build and sign APK
+        uses: WaterLemons2k/apk-action@v1
         with:
           keystore: ${{ secrets.KEYSTORE }}
           keystore-password: ${{ secrets.KEYSTORE_PASSWORD }}
           key-alias: ${{ secrets.KEY_ALIAS }}
           key-password: ${{ secrets.KEY_PASSWORD }}
-
           java-version: "17"
           gradle-args: ""
 
-      - uses: softprops/action-gh-release@v2
+      - name: Rename APK to repository name
+        run: mv app/build/outputs/apk/release/app-release.apk app/build/outputs/apk/release/${{ env.REPO_NAME }}.apk
+
+      - name: Upload APK as artifact
+        uses: actions/upload-artifact@v4
         with:
-          files: app/build/outputs/apk/release/*.apk
+          name: ${{ env.REPO_NAME }}-${{ github.ref_name }}
+          path: app/build/outputs/apk/release/${{ env.REPO_NAME }}.apk
+          retention-days: 90
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/')
+
+    steps:
+      - name: Get repository base name
+        run: echo "REPO_NAME=$(basename ${{ github.repository }})" >> $GITHUB_ENV
+
+      - name: Download APK artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ env.REPO_NAME }}-${{ github.ref_name }}
+          path: ./
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ${{ env.REPO_NAME }}.apk
+          draft: false
+          prerelease: false
