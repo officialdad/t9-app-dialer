@@ -2,21 +2,23 @@
 <com.google.android.material.card.MaterialCardView
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/mainCard"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:layout_marginBottom="100dp"
-    app:cardBackgroundColor="@color/black_pure"
+    app:cardBackgroundColor="@color/background"
     app:cardCornerRadius="16dp"
     app:cardElevation="0dp"
     app:strokeWidth="1dp"
     app:strokeColor="@color/border_gray">
 
 <LinearLayout
+    android:id="@+id/mainContainer"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:orientation="vertical"
     android:padding="8dp"
-    android:background="@color/black_pure">
+    android:background="@color/background">
 
     <!-- Top 3 Apps (Horizontal, Centered) - Fixed height area -->
     <HorizontalScrollView

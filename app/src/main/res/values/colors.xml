@@ -1,18 +1,31 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- OLED Black Theme -->
+    <!-- Dark Theme Colors -->
+    <color name="dark_background">#000000</color>
+    <color name="dark_key_number">#FFFFFF</color>
+    <color name="dark_key_alphabet">#808080</color>
+    <color name="dark_app_text">#E0E0E0</color>
+    <color name="dark_app_text_highlight">#FFFFFF</color>
+    <color name="dark_border">#404040</color>
+
+    <!-- Light Theme Colors -->
+    <color name="light_background">#FFFFFF</color>
+    <color name="light_key_number">#000000</color>
+    <color name="light_key_alphabet">#666666</color>
+    <color name="light_app_text">#333333</color>
+    <color name="light_app_text_highlight">#000000</color>
+    <color name="light_border">#E0E0E0</color>
+
+    <!-- Common Colors -->
     <color name="black_pure">#000000</color>
     <color name="white">#FFFFFF</color>
+    <color name="key_clear">#FF5252</color>
 
-    <!-- Key Colors -->
-    <color name="key_number">#FFFFFF</color>        <!-- Bright white for numbers -->
-    <color name="key_alphabet">#808080</color>      <!-- Gray for alphabets -->
-    <color name="key_clear">#FF5252</color>         <!-- Red accent for CLEAR -->
-
-    <!-- App Icon Colors -->
-    <color name="app_text">#E0E0E0</color>          <!-- Light gray for app names -->
-    <color name="app_text_highlight">#FFFFFF</color> <!-- White for highlighted matched text -->
-
-    <!-- Border Color -->
-    <color name="border_gray">#404040</color>       <!-- Subtle gray border -->
+    <!-- Dynamic Colors (will be set programmatically) -->
+    <color name="background">@color/dark_background</color>
+    <color name="key_number">@color/dark_key_number</color>
+    <color name="key_alphabet">@color/dark_key_alphabet</color>
+    <color name="app_text">@color/dark_app_text</color>
+    <color name="app_text_highlight">@color/dark_app_text_highlight</color>
+    <color name="border_gray">@color/dark_border</color>
 </resources>

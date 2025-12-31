@@ -31,9 +31,11 @@ import org.xmlpull.v1.XmlPullParserFactory
 class T9Activity : Activity() {
 
     private lateinit var appsContainer: LinearLayout
+    private lateinit var mainContainer: LinearLayout
     private var allApps: List<AppInfo> = emptyList()
     private var appsLoaded = false
     private var currentQuery = ""
+    private var isLightTheme = false
     private var iconPackPackageName: String? = null
     private var iconPackResources: Resources? = null
     private var iconPackMappings: MutableMap<String, String> = mutableMapOf()
@@ -66,6 +68,10 @@ class T9Activity : Activity() {
         setContentView(R.layout.activity_t9)
 
         appsContainer = findViewById(R.id.appsContainer)
+        mainContainer = findViewById(R.id.mainContainer)
+
+        // Load theme preference
+        loadThemePreference()
 
         // Load icon pack preference
         loadIconPackPreference()
@@ -73,7 +79,15 @@ class T9Activity : Activity() {
         // Set up T9 keyboard buttons
         setupKeyboard()
 
+        // Apply theme
+        applyTheme()
+
         // Apps will be loaded on first key press for faster startup
+    }
+
+    private fun loadThemePreference() {
+        val prefs = getSharedPreferences("T9Dialer", Context.MODE_PRIVATE)
+        isLightTheme = prefs.getBoolean("light_theme", false)
     }
 
     private fun loadIconPackPreference() {
@@ -91,6 +105,106 @@ class T9Activity : Activity() {
                 iconPackMappings.clear()
                 prefs.edit().remove("icon_pack").apply()
             }
+        }
+    }
+
+    private fun applyTheme() {
+        val bgColor = if (isLightTheme) {
+            getColor(R.color.light_background)
+        } else {
+            getColor(R.color.dark_background)
+        }
+
+        mainContainer.setBackgroundColor(bgColor)
+
+        // Update card stroke color
+        val cardView = findViewById<com.google.android.material.card.MaterialCardView>(R.id.mainCard)
+        val borderColor = if (isLightTheme) {
+            getColor(R.color.light_border)
+        } else {
+            getColor(R.color.dark_border)
+        }
+        cardView?.strokeColor = borderColor
+        cardView?.setCardBackgroundColor(bgColor)
+
+        // Update button text colors
+        updateButtonColors()
+    }
+
+    private fun toggleTheme() {
+        isLightTheme = !isLightTheme
+
+        // Save preference
+        val prefs = getSharedPreferences("T9Dialer", Context.MODE_PRIVATE)
+        prefs.edit().putBoolean("light_theme", isLightTheme).apply()
+
+        // Apply theme
+        applyTheme()
+
+        // Refresh app list to update text colors
+        updateAppsList()
+
+        // Show toast
+        val message = if (isLightTheme) "Light theme" else "Dark theme"
+        Toast.makeText(this, message, Toast.LENGTH_SHORT).show()
+    }
+
+    private fun updateButtonColors() {
+        val keyNumberColor = if (isLightTheme) {
+            getColor(R.color.light_key_number)
+        } else {
+            getColor(R.color.dark_key_number)
+        }
+
+        val keyAlphabetColor = if (isLightTheme) {
+            getColor(R.color.light_key_alphabet)
+        } else {
+            getColor(R.color.dark_key_alphabet)
+        }
+
+        // Update all buttons
+        for (btnId in listOf(R.id.btn1, R.id.btn2, R.id.btn3, R.id.btn4,
+                             R.id.btn5, R.id.btn6, R.id.btn7, R.id.btn8, R.id.btn9)) {
+            val button = findViewById<MaterialButton>(btnId)
+            val isBtn1 = btnId == R.id.btn1
+            updateButtonText(button, isBtn1, keyNumberColor, keyAlphabetColor)
+        }
+    }
+
+    private fun updateButtonText(button: MaterialButton, isBtn1: Boolean,
+                                  numberColor: Int, alphabetColor: Int) {
+        val text = button.text.toString()
+        val parts = text.split("\n")
+        if (parts.size == 2) {
+            val spannable = SpannableString(text)
+            val number = parts[0]
+
+            // Number color (red for button 1, otherwise theme color)
+            val numberColorToUse = if (isBtn1) getColor(R.color.key_clear) else numberColor
+            spannable.setSpan(
+                ForegroundColorSpan(numberColorToUse),
+                0, number.length,
+                Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
+            )
+            spannable.setSpan(
+                AbsoluteSizeSpan(20, true),
+                0, number.length,
+                Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
+            )
+
+            // Alphabet color
+            spannable.setSpan(
+                ForegroundColorSpan(alphabetColor),
+                number.length + 1, text.length,
+                Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
+            )
+            spannable.setSpan(
+                AbsoluteSizeSpan(14, true),
+                number.length + 1, text.length,
+                Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
+            )
+
+            button.text = spannable
         }
     }
 
@@ -243,8 +357,15 @@ class T9Activity : Activity() {
         clearButton.setCompoundDrawables(null, null, settingsIcon, null)
         clearButton.compoundDrawablePadding = dpToPx(4)
 
+        // Button 2: Add theme toggle icon
+        val btn2 = findViewById<MaterialButton>(R.id.btn2)
+        val themeIcon = getDrawable(R.drawable.ic_theme)
+        themeIcon?.setBounds(0, 0, dpToPx(16), dpToPx(16))
+        btn2.setCompoundDrawables(null, null, themeIcon, null)
+        btn2.compoundDrawablePadding = dpToPx(4)
+
         // Number buttons 2-9
-        findViewById<MaterialButton>(R.id.btn2).setOnClickListener { addDigit('2') }
+        btn2.setOnClickListener { addDigit('2') }
         findViewById<MaterialButton>(R.id.btn3).setOnClickListener { addDigit('3') }
         findViewById<MaterialButton>(R.id.btn4).setOnClickListener { addDigit('4') }
         findViewById<MaterialButton>(R.id.btn5).setOnClickListener { addDigit('5') }
@@ -259,9 +380,15 @@ class T9Activity : Activity() {
             updateAppsList()
         }
 
-        // Long-press to open icon pack selector
+        // Long-press button 1 to open icon pack selector
         clearButton.setOnLongClickListener {
             showIconPackSelector()
+            true
+        }
+
+        // Long-press button 2 to toggle theme
+        btn2.setOnLongClickListener {
+            toggleTheme()
             true
         }
     }
@@ -327,9 +454,16 @@ class T9Activity : Activity() {
 
         // Show message if no matches
         if (matchedApps.isEmpty() && currentQuery.isNotEmpty()) {
+            val textColor = if (isLightTheme) {
+                getColor(R.color.light_app_text)
+            } else {
+                getColor(R.color.dark_app_text)
+            }
+
             val noMatchView = TextView(this).apply {
                 text = "No matches"
                 textSize = 14f
+                setTextColor(textColor)
                 setPadding(dpToPx(16), dpToPx(16), dpToPx(16), dpToPx(16))
                 gravity = Gravity.CENTER
             }
@@ -355,9 +489,22 @@ class T9Activity : Activity() {
                 val matchStart = matchInfo.matchPosition
                 val matchEnd = matchStart + currentQuery.length
 
-                // Make matched text white and bold
+                // Get theme-aware colors
+                val highlightColor = if (isLightTheme) {
+                    getColor(R.color.light_app_text_highlight)
+                } else {
+                    getColor(R.color.dark_app_text_highlight)
+                }
+
+                val normalColor = if (isLightTheme) {
+                    getColor(R.color.light_app_text)
+                } else {
+                    getColor(R.color.dark_app_text)
+                }
+
+                // Make matched text highlighted and bold
                 spannable.setSpan(
-                    ForegroundColorSpan(getColor(R.color.app_text_highlight)),
+                    ForegroundColorSpan(highlightColor),
                     matchStart,
                     matchEnd,
                     Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
@@ -371,7 +518,7 @@ class T9Activity : Activity() {
 
                 text = spannable
                 textSize = 13f  // Increased from 12f for better readability
-                setTextColor(getColor(R.color.app_text)) // Light gray text for dark theme
+                setTextColor(normalColor)
                 gravity = Gravity.CENTER
                 maxLines = 2
                 layoutParams = LinearLayout.LayoutParams(
