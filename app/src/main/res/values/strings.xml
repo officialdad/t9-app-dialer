@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">T9 Dialer</string>
+    <string name="search_hint">Type to search apps...</string>
+    <string name="no_results">No apps found</string>
+</resources>
