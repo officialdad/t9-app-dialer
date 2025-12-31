@@ -5,6 +5,7 @@ import android.content.Intent
 import android.content.pm.ApplicationInfo
 import android.graphics.drawable.Drawable
 import android.os.Bundle
+import android.util.TypedValue
 import android.view.Gravity
 import android.widget.Button
 import android.widget.ImageView
@@ -101,8 +102,8 @@ class T9Activity : Activity() {
         if (filteredApps.isEmpty() && currentQuery.isNotEmpty()) {
             val noMatchView = TextView(this).apply {
                 text = "No matches"
-                textSize = 18f
-                setPadding(40, 40, 40, 40)
+                textSize = 14f
+                setPadding(dpToPx(16), dpToPx(16), dpToPx(16), dpToPx(16))
                 gravity = Gravity.CENTER
             }
             appsContainer.addView(noMatchView)
@@ -113,9 +114,9 @@ class T9Activity : Activity() {
         return LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER
-            setPadding(24, 16, 24, 16)
+            setPadding(dpToPx(12), dpToPx(8), dpToPx(12), dpToPx(8))
 
-            val iconSize = 150
+            val iconSize = dpToPx(75)
             val icon = ImageView(this@T9Activity).apply {
                 setImageDrawable(app.icon)
                 layoutParams = LinearLayout.LayoutParams(iconSize, iconSize)
@@ -123,14 +124,14 @@ class T9Activity : Activity() {
 
             val label = TextView(this@T9Activity).apply {
                 text = app.name
-                textSize = 16f
+                textSize = 12f
                 gravity = Gravity.CENTER
                 maxLines = 2
                 layoutParams = LinearLayout.LayoutParams(
-                    iconSize + 20,
+                    dpToPx(85),
                     LinearLayout.LayoutParams.WRAP_CONTENT
                 ).apply {
-                    topMargin = 12
+                    topMargin = dpToPx(6)
                 }
             }
 
@@ -147,6 +148,14 @@ class T9Activity : Activity() {
             isFocusable = true
             setBackgroundResource(android.R.drawable.list_selector_background)
         }
+    }
+
+    private fun dpToPx(dp: Int): Int {
+        return TypedValue.applyDimension(
+            TypedValue.COMPLEX_UNIT_DIP,
+            dp.toFloat(),
+            resources.displayMetrics
+        ).toInt()
     }
 
     private fun matchesT9(appName: String, query: String): Boolean {

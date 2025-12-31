@@ -3,16 +3,16 @@
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:orientation="vertical"
-    android:padding="16dp"
+    android:padding="8dp"
     android:background="#FFFFFF">
 
-    <!-- Top 3 Apps (Horizontal, Centered, Bigger) -->
+    <!-- Top 3 Apps (Horizontal, Centered) -->
     <HorizontalScrollView
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:scrollbars="none"
-        android:layout_marginTop="20dp"
-        android:layout_marginBottom="30dp">
+        android:layout_marginTop="8dp"
+        android:layout_marginBottom="12dp">
 
         <LinearLayout
             android:id="@+id/appsContainer"
@@ -26,107 +26,122 @@
     </HorizontalScrollView>
 
     <!-- T9 Keyboard (3x3 grid, buttons 1-9 only) -->
-    <GridLayout
+    <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:columnCount="3"
-        android:rowCount="3"
-        android:alignmentMode="alignBounds"
-        android:useDefaultMargins="false">
+        android:orientation="vertical">
 
         <!-- Row 1: 1, 2, 3 -->
-        <Button
-            android:id="@+id/btn1"
-            android:layout_width="0dp"
-            android:layout_height="80dp"
-            android:layout_columnWeight="1"
-            android:layout_margin="4dp"
-            android:text="1\nCLEAR"
-            android:textSize="16sp"
-            android:backgroundTint="#FF5252" />
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal">
 
-        <Button
-            android:id="@+id/btn2"
-            android:layout_width="0dp"
-            android:layout_height="80dp"
-            android:layout_columnWeight="1"
-            android:layout_margin="4dp"
-            android:text="2\nABC"
-            android:textSize="16sp"
-            android:backgroundTint="#4CAF50" />
+            <Button
+                android:id="@+id/btn1"
+                android:layout_width="0dp"
+                android:layout_height="55dp"
+                android:layout_weight="1"
+                android:layout_margin="2dp"
+                android:text="1\nCLEAR"
+                android:textSize="12sp"
+                android:backgroundTint="#FF5252" />
 
-        <Button
-            android:id="@+id/btn3"
-            android:layout_width="0dp"
-            android:layout_height="80dp"
-            android:layout_columnWeight="1"
-            android:layout_margin="4dp"
-            android:text="3\nDEF"
-            android:textSize="16sp"
-            android:backgroundTint="#4CAF50" />
+            <Button
+                android:id="@+id/btn2"
+                android:layout_width="0dp"
+                android:layout_height="55dp"
+                android:layout_weight="1"
+                android:layout_margin="2dp"
+                android:text="2\nABC"
+                android:textSize="12sp"
+                android:backgroundTint="#4CAF50" />
+
+            <Button
+                android:id="@+id/btn3"
+                android:layout_width="0dp"
+                android:layout_height="55dp"
+                android:layout_weight="1"
+                android:layout_margin="2dp"
+                android:text="3\nDEF"
+                android:textSize="12sp"
+                android:backgroundTint="#4CAF50" />
+        </LinearLayout>
 
         <!-- Row 2: 4, 5, 6 -->
-        <Button
-            android:id="@+id/btn4"
-            android:layout_width="0dp"
-            android:layout_height="80dp"
-            android:layout_columnWeight="1"
-            android:layout_margin="4dp"
-            android:text="4\nGHI"
-            android:textSize="16sp"
-            android:backgroundTint="#4CAF50" />
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal">
 
-        <Button
-            android:id="@+id/btn5"
-            android:layout_width="0dp"
-            android:layout_height="80dp"
-            android:layout_columnWeight="1"
-            android:layout_margin="4dp"
-            android:text="5\nJKL"
-            android:textSize="16sp"
-            android:backgroundTint="#4CAF50" />
+            <Button
+                android:id="@+id/btn4"
+                android:layout_width="0dp"
+                android:layout_height="55dp"
+                android:layout_weight="1"
+                android:layout_margin="2dp"
+                android:text="4\nGHI"
+                android:textSize="12sp"
+                android:backgroundTint="#4CAF50" />
 
-        <Button
-            android:id="@+id/btn6"
-            android:layout_width="0dp"
-            android:layout_height="80dp"
-            android:layout_columnWeight="1"
-            android:layout_margin="4dp"
-            android:text="6\nMNO"
-            android:textSize="16sp"
-            android:backgroundTint="#4CAF50" />
+            <Button
+                android:id="@+id/btn5"
+                android:layout_width="0dp"
+                android:layout_height="55dp"
+                android:layout_weight="1"
+                android:layout_margin="2dp"
+                android:text="5\nJKL"
+                android:textSize="12sp"
+                android:backgroundTint="#4CAF50" />
+
+            <Button
+                android:id="@+id/btn6"
+                android:layout_width="0dp"
+                android:layout_height="55dp"
+                android:layout_weight="1"
+                android:layout_margin="2dp"
+                android:text="6\nMNO"
+                android:textSize="12sp"
+                android:backgroundTint="#4CAF50" />
+        </LinearLayout>
 
         <!-- Row 3: 7, 8, 9 -->
-        <Button
-            android:id="@+id/btn7"
-            android:layout_width="0dp"
-            android:layout_height="80dp"
-            android:layout_columnWeight="1"
-            android:layout_margin="4dp"
-            android:text="7\nPQRS"
-            android:textSize="16sp"
-            android:backgroundTint="#4CAF50" />
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal">
 
-        <Button
-            android:id="@+id/btn8"
-            android:layout_width="0dp"
-            android:layout_height="80dp"
-            android:layout_columnWeight="1"
-            android:layout_margin="4dp"
-            android:text="8\nTUV"
-            android:textSize="16sp"
-            android:backgroundTint="#4CAF50" />
+            <Button
+                android:id="@+id/btn7"
+                android:layout_width="0dp"
+                android:layout_height="55dp"
+                android:layout_weight="1"
+                android:layout_margin="2dp"
+                android:text="7\nPQRS"
+                android:textSize="12sp"
+                android:backgroundTint="#4CAF50" />
 
-        <Button
-            android:id="@+id/btn9"
-            android:layout_width="0dp"
-            android:layout_height="80dp"
-            android:layout_columnWeight="1"
-            android:layout_margin="4dp"
-            android:text="9\nWXYZ"
-            android:textSize="16sp"
-            android:backgroundTint="#4CAF50" />
+            <Button
+                android:id="@+id/btn8"
+                android:layout_width="0dp"
+                android:layout_height="55dp"
+                android:layout_weight="1"
+                android:layout_margin="2dp"
+                android:text="8\nTUV"
+                android:textSize="12sp"
+                android:backgroundTint="#4CAF50" />
 
-    </GridLayout>
+            <Button
+                android:id="@+id/btn9"
+                android:layout_width="0dp"
+                android:layout_height="55dp"
+                android:layout_weight="1"
+                android:layout_margin="2dp"
+                android:text="9\nWXYZ"
+                android:textSize="12sp"
+                android:backgroundTint="#4CAF50" />
+        </LinearLayout>
+
+    </LinearLayout>
 
 </LinearLayout>
