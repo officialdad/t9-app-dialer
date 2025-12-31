@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Borderless T9 Key Style -->
+    <style name="T9Key" parent="Widget.Material3.Button.TextButton">
+        <item name="android:background">@android:color/transparent</item>
+        <item name="backgroundTint">@android:color/transparent</item>
+        <item name="android:textSize">20sp</item>
+        <item name="android:textColor">@color/key_number</item>
+        <item name="android:minHeight">60dp</item>
+        <item name="android:stateListAnimator">@null</item>
+        <item name="elevation">0dp</item>
+        <item name="rippleColor">#33FFFFFF</item> <!-- Subtle white ripple on tap -->
+    </style>
+
+    <style name="T9Key.Clear">
+        <!-- Clear button inherits T9Key style -->
+    </style>
+</resources>

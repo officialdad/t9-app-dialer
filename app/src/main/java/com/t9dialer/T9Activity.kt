@@ -5,12 +5,16 @@ import android.content.Intent
 import android.content.pm.ApplicationInfo
 import android.graphics.drawable.Drawable
 import android.os.Bundle
+import android.text.SpannableString
+import android.text.Spannable
+import android.text.style.ForegroundColorSpan
+import android.text.style.AbsoluteSizeSpan
 import android.util.TypedValue
 import android.view.Gravity
-import android.widget.Button
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
+import com.google.android.material.button.MaterialButton
 
 class T9Activity : Activity() {
 
@@ -26,6 +30,10 @@ class T9Activity : Activity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        // Position dialog at bottom of screen for one-handed use
+        window?.setGravity(Gravity.BOTTOM)
+
         setContentView(R.layout.activity_t9)
 
         appsContainer = findViewById(R.id.appsContainer)
@@ -40,19 +48,62 @@ class T9Activity : Activity() {
         updateAppsList()
     }
 
+    private fun setKeyText(button: MaterialButton, number: String, letters: String, isRed: Boolean = false) {
+        val text = "$number\n$letters"
+        val spannable = SpannableString(text)
+
+        // Number: 20sp size, white (or red for button 1)
+        val numberColor = if (isRed) getColor(R.color.key_clear) else getColor(R.color.key_number)
+        spannable.setSpan(
+            ForegroundColorSpan(numberColor),
+            0, number.length,
+            Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
+        )
+        spannable.setSpan(
+            AbsoluteSizeSpan(20, true), // 20sp
+            0, number.length,
+            Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
+        )
+
+        // Alphabet: 14sp size, gray
+        spannable.setSpan(
+            ForegroundColorSpan(getColor(R.color.key_alphabet)),
+            number.length + 1, text.length,
+            Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
+        )
+        spannable.setSpan(
+            AbsoluteSizeSpan(14, true), // 14sp
+            number.length + 1, text.length,
+            Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
+        )
+
+        button.text = spannable
+    }
+
     private fun setupKeyboard() {
+        // Set dual-color text for all buttons
+        setKeyText(findViewById(R.id.btn1), "1", "CLEAR", isRed = true)
+        setKeyText(findViewById(R.id.btn2), "2", "ABC")
+        setKeyText(findViewById(R.id.btn3), "3", "DEF")
+        setKeyText(findViewById(R.id.btn4), "4", "GHI")
+        setKeyText(findViewById(R.id.btn5), "5", "JKL")
+        setKeyText(findViewById(R.id.btn6), "6", "MNO")
+        setKeyText(findViewById(R.id.btn7), "7", "PQRS")
+        setKeyText(findViewById(R.id.btn8), "8", "TUV")
+        setKeyText(findViewById(R.id.btn9), "9", "WXYZ")
+
         // Number buttons 2-9
-        findViewById<Button>(R.id.btn2).setOnClickListener { addDigit('2') }
-        findViewById<Button>(R.id.btn3).setOnClickListener { addDigit('3') }
-        findViewById<Button>(R.id.btn4).setOnClickListener { addDigit('4') }
-        findViewById<Button>(R.id.btn5).setOnClickListener { addDigit('5') }
-        findViewById<Button>(R.id.btn6).setOnClickListener { addDigit('6') }
-        findViewById<Button>(R.id.btn7).setOnClickListener { addDigit('7') }
-        findViewById<Button>(R.id.btn8).setOnClickListener { addDigit('8') }
-        findViewById<Button>(R.id.btn9).setOnClickListener { addDigit('9') }
+        findViewById<MaterialButton>(R.id.btn2).setOnClickListener { addDigit('2') }
+        findViewById<MaterialButton>(R.id.btn3).setOnClickListener { addDigit('3') }
+        findViewById<MaterialButton>(R.id.btn4).setOnClickListener { addDigit('4') }
+        findViewById<MaterialButton>(R.id.btn5).setOnClickListener { addDigit('5') }
+        findViewById<MaterialButton>(R.id.btn6).setOnClickListener { addDigit('6') }
+        findViewById<MaterialButton>(R.id.btn7).setOnClickListener { addDigit('7') }
+        findViewById<MaterialButton>(R.id.btn8).setOnClickListener { addDigit('8') }
+        findViewById<MaterialButton>(R.id.btn9).setOnClickListener { addDigit('9') }
 
         // Button 1: Clear/Reset
-        findViewById<Button>(R.id.btn1).setOnClickListener {
+        findViewById<MaterialButton>(R.id.btn1).setOnClickListener {
             currentQuery = ""
             updateAppsList()
         }
@@ -125,6 +176,7 @@ class T9Activity : Activity() {
             val label = TextView(this@T9Activity).apply {
                 text = app.name
                 textSize = 12f
+                setTextColor(getColor(R.color.app_text)) // Light gray text for dark theme
                 gravity = Gravity.CENTER
                 maxLines = 2
                 layoutParams = LinearLayout.LayoutParams(

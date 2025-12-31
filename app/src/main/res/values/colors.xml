@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- OLED Black Theme -->
+    <color name="black_pure">#000000</color>
+    <color name="white">#FFFFFF</color>
+
+    <!-- Key Colors -->
+    <color name="key_number">#FFFFFF</color>        <!-- Bright white for numbers -->
+    <color name="key_alphabet">#808080</color>      <!-- Gray for alphabets -->
+    <color name="key_clear">#FF5252</color>         <!-- Red accent for CLEAR -->
+
+    <!-- App Icon Colors -->
+    <color name="app_text">#E0E0E0</color>          <!-- Light gray for app names -->
+
+    <!-- Border Color -->
+    <color name="border_gray">#404040</color>       <!-- Subtle gray border -->
+</resources>

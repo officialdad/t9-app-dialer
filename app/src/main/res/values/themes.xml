@@ -1,11 +1,24 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <style name="Theme.App.Dialog" parent="android:Theme.Material.Light.Dialog">
+    <style name="Theme.App.Dialog" parent="Theme.Material3.Dark.Dialog">
+        <!-- Transparent window background to show dimmed background -->
+        <item name="android:windowBackground">@android:color/transparent</item>
+        <item name="colorSurface">@color/black_pure</item>
+        <item name="android:colorBackground">@color/black_pure</item>
+
+        <!-- Dialog configuration -->
         <item name="android:windowIsFloating">true</item>
-        <item name="android:windowBackground">@android:color/white</item>
         <item name="android:backgroundDimEnabled">true</item>
         <item name="android:windowMinWidthMajor">70%</item>
         <item name="android:windowMinWidthMinor">70%</item>
         <item name="android:windowNoTitle">true</item>
+
+        <!-- Rounded corners -->
+        <item name="shapeAppearanceMediumComponent">@style/ShapeAppearance.App.RoundedCorners</item>
+    </style>
+
+    <style name="ShapeAppearance.App.RoundedCorners" parent="">
+        <item name="cornerFamily">rounded</item>
+        <item name="cornerSize">16dp</item>
     </style>
 </resources>
