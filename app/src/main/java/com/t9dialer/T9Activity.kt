@@ -27,6 +27,14 @@ import android.widget.Toast
 import com.google.android.material.button.MaterialButton
 import org.xmlpull.v1.XmlPullParser
 import org.xmlpull.v1.XmlPullParserFactory
+import kotlinx.coroutines.*
+import java.util.concurrent.ConcurrentHashMap
+import android.graphics.drawable.RippleDrawable
+import android.graphics.drawable.ShapeDrawable
+import android.graphics.drawable.shapes.RoundRectShape
+import android.content.res.ColorStateList
+import android.graphics.drawable.StateListDrawable
+import android.graphics.drawable.ColorDrawable
 
 class T9Activity : Activity() {
 
@@ -41,10 +49,16 @@ class T9Activity : Activity() {
     private var iconPackMappings: MutableMap<String, String> = mutableMapOf()
     private val debugLog = StringBuilder()
 
+    // Performance optimizations
+    private val iconCache = ConcurrentHashMap<String, Drawable>()
+    private val viewPool = mutableListOf<LinearLayout>()
+    private val mainScope = CoroutineScope(Dispatchers.Main + SupervisorJob())
+
     data class AppInfo(
         val name: String,
         val packageName: String,
-        val icon: Drawable
+        val t9Sequence: String,  // Pre-computed T9 sequence for fast matching
+        var icon: Drawable? = null  // Lazy-loaded icon
     )
 
     data class IconPackInfo(
@@ -83,6 +97,26 @@ class T9Activity : Activity() {
         applyTheme()
 
         // Apps will be loaded on first key press for faster startup
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        mainScope.cancel()  // Clean up coroutines
+    }
+
+    // Convert string to T9 digit sequence for fast matching
+    private fun stringToT9(text: String): String {
+        val t9Map = mapOf(
+            'a' to '2', 'b' to '2', 'c' to '2',
+            'd' to '3', 'e' to '3', 'f' to '3',
+            'g' to '4', 'h' to '4', 'i' to '4',
+            'j' to '5', 'k' to '5', 'l' to '5',
+            'm' to '6', 'n' to '6', 'o' to '6',
+            'p' to '7', 'q' to '7', 'r' to '7', 's' to '7',
+            't' to '8', 'u' to '8', 'v' to '8',
+            'w' to '9', 'x' to '9', 'y' to '9', 'z' to '9'
+        )
+        return text.lowercase().map { t9Map[it] ?: ' ' }.joinToString("")
     }
 
     private fun loadThemePreference() {
@@ -162,13 +196,64 @@ class T9Activity : Activity() {
             getColor(R.color.dark_key_alphabet)
         }
 
+        val rippleColor = if (isLightTheme) {
+            getColor(R.color.light_ripple)
+        } else {
+            getColor(R.color.dark_ripple)
+        }
+
+        val rippleColorRed = if (isLightTheme) {
+            getColor(R.color.light_ripple_red)
+        } else {
+            getColor(R.color.dark_ripple_red)
+        }
+
         // Update all buttons
         for (btnId in listOf(R.id.btn1, R.id.btn2, R.id.btn3, R.id.btn4,
                              R.id.btn5, R.id.btn6, R.id.btn7, R.id.btn8, R.id.btn9)) {
             val button = findViewById<MaterialButton>(btnId)
             val isBtn1 = btnId == R.id.btn1
             updateButtonText(button, isBtn1, keyNumberColor, keyAlphabetColor)
+
+            // Create ripple drawable for foreground
+            val color = if (isBtn1) rippleColorRed else rippleColor
+            val ripple = createRippleDrawable(color)
+            button.foreground = ripple
         }
+    }
+
+    private fun createRippleDrawable(color: Int): StateListDrawable {
+        // Create state list drawable for instant press feedback
+        val stateList = StateListDrawable()
+
+        // Pressed state - show highlight instantly
+        val cornerRadius = dpToPx(8).toFloat()
+        val radii = floatArrayOf(
+            cornerRadius, cornerRadius,  // top-left
+            cornerRadius, cornerRadius,  // top-right
+            cornerRadius, cornerRadius,  // bottom-right
+            cornerRadius, cornerRadius   // bottom-left
+        )
+        val pressedShape = RoundRectShape(radii, null, null)
+        val pressedDrawable = ShapeDrawable(pressedShape).apply {
+            paint.color = color
+        }
+
+        // Add pressed state
+        stateList.addState(intArrayOf(android.R.attr.state_pressed), pressedDrawable)
+
+        // Default state - transparent (no highlight)
+        val defaultShape = RoundRectShape(radii, null, null)
+        val defaultDrawable = ShapeDrawable(defaultShape).apply {
+            paint.color = android.graphics.Color.TRANSPARENT
+        }
+        stateList.addState(intArrayOf(), defaultDrawable)
+
+        // No exit fade - instant appearance and disappearance
+        stateList.setEnterFadeDuration(0)
+        stateList.setExitFadeDuration(0)
+
+        return stateList
     }
 
     private fun updateButtonText(button: MaterialButton, isBtn1: Boolean,
@@ -405,32 +490,47 @@ class T9Activity : Activity() {
     }
 
     private fun loadInstalledApps() {
-        val pm = packageManager
+        // Load apps in background for better performance
+        mainScope.launch(Dispatchers.IO) {
+            val pm = packageManager
 
-        // Query only apps with LAUNCHER intent (same as default launcher)
-        val mainIntent = Intent(Intent.ACTION_MAIN, null).apply {
-            addCategory(Intent.CATEGORY_LAUNCHER)
-        }
-
-        val launcherActivities = pm.queryIntentActivities(mainIntent, 0)
-
-        allApps = launcherActivities
-            .map { resolveInfo ->
-                val packageName = resolveInfo.activityInfo.packageName
-                val defaultIcon = resolveInfo.loadIcon(pm)
-                val icon = getIconFromPack(packageName) ?: defaultIcon
-
-                AppInfo(
-                    name = resolveInfo.loadLabel(pm).toString(),
-                    packageName = packageName,
-                    icon = icon
-                )
+            // Query only apps with LAUNCHER intent (same as default launcher)
+            val mainIntent = Intent(Intent.ACTION_MAIN, null).apply {
+                addCategory(Intent.CATEGORY_LAUNCHER)
             }
-            .distinctBy { it.packageName }  // Remove duplicates if any app has multiple launcher activities
-            .sortedBy { it.name }
+
+            val launcherActivities = pm.queryIntentActivities(mainIntent, 0)
+
+            val apps = launcherActivities
+                .map { resolveInfo ->
+                    val packageName = resolveInfo.activityInfo.packageName
+                    val appName = resolveInfo.loadLabel(pm).toString()
+
+                    AppInfo(
+                        name = appName,
+                        packageName = packageName,
+                        t9Sequence = stringToT9(appName),  // Pre-compute T9 sequence
+                        icon = null  // Icons loaded lazily when needed
+                    )
+                }
+                .distinctBy { it.packageName }
+                .sortedBy { it.name }
+
+            withContext(Dispatchers.Main) {
+                allApps = apps
+                updateAppsList()  // Refresh UI if search is active
+            }
+        }
     }
 
     private fun updateAppsList() {
+        // Store old views for recycling
+        for (i in 0 until appsContainer.childCount) {
+            val child = appsContainer.getChildAt(i)
+            if (child is LinearLayout && child.tag is MatchInfo) {
+                viewPool.add(child)
+            }
+        }
         appsContainer.removeAllViews()
 
         // Only show apps when there's a search query
@@ -438,22 +538,40 @@ class T9Activity : Activity() {
             return
         }
 
-        // Filter and sort apps based on T9 query
-        val matchedApps = allApps
-            .mapNotNull { app -> getMatchInfo(app, currentQuery) }
-            .sortedWith(compareBy<MatchInfo> { it.matchPriority }  // First by priority (0=beginning, 1=word, 2=substring)
-                .thenBy { it.app.name.length }                      // Then by name length (shorter first)
-                .thenBy { it.app.name })                            // Finally alphabetically
+        // Optimized search with early termination
+        val matchedApps = mutableListOf<MatchInfo>()
+        var foundPriorityZero = 0
+
+        // Early termination: stop after finding 3 priority-0 (beginning) matches
+        // or if we have 3+ matches and enough high-priority ones
+        for (app in allApps) {
+            // Stop if we have 3 apps starting with the query (priority 0)
+            if (foundPriorityZero >= 3) break
+
+            val matchInfo = getMatchInfo(app, currentQuery)
+            if (matchInfo != null) {
+                matchedApps.add(matchInfo)
+                if (matchInfo.matchPriority == 0) {
+                    foundPriorityZero++
+                }
+            }
+        }
+
+        // Sort matched apps
+        val sortedApps = matchedApps
+            .sortedWith(compareBy<MatchInfo> { it.matchPriority }
+                .thenBy { it.app.name.length }
+                .thenBy { it.app.name })
             .take(3)
 
         // Add top 3 apps to horizontal container
-        for (matchInfo in matchedApps) {
-            val appView = createAppView(matchInfo)
+        for (matchInfo in sortedApps) {
+            val appView = getOrCreateAppView(matchInfo)
             appsContainer.addView(appView)
         }
 
         // Show message if no matches
-        if (matchedApps.isEmpty() && currentQuery.isNotEmpty()) {
+        if (sortedApps.isEmpty() && currentQuery.isNotEmpty()) {
             val textColor = if (isLightTheme) {
                 getColor(R.color.light_app_text)
             } else {
@@ -471,58 +589,73 @@ class T9Activity : Activity() {
         }
     }
 
-    private fun createAppView(matchInfo: MatchInfo): LinearLayout {
+    // Lazy load icon with caching
+    private fun loadIconForApp(app: AppInfo, imageView: ImageView? = null) {
+        if (app.icon != null) return  // Already loaded
+
+        // Check cache first
+        val cacheKey = "${iconPackPackageName ?: "default"}_${app.packageName}"
+        val cachedIcon = iconCache[cacheKey]
+        if (cachedIcon != null) {
+            app.icon = cachedIcon
+            imageView?.setImageDrawable(cachedIcon)
+            return
+        }
+
+        // Load icon in background
+        mainScope.launch(Dispatchers.IO) {
+            val pm = packageManager
+            val icon = try {
+                val iconPackIcon = getIconFromPack(app.packageName)
+                iconPackIcon ?: pm.getApplicationIcon(app.packageName)
+            } catch (e: Exception) {
+                pm.getApplicationIcon(app.packageName)
+            }
+
+            iconCache[cacheKey] = icon
+            app.icon = icon
+
+            // Update the ImageView on main thread if provided
+            withContext(Dispatchers.Main) {
+                imageView?.setImageDrawable(icon)
+            }
+        }
+    }
+
+    // Get or create app view (with view recycling)
+    private fun getOrCreateAppView(matchInfo: MatchInfo): LinearLayout {
+        val view = if (viewPool.isNotEmpty()) {
+            viewPool.removeAt(viewPool.size - 1)
+        } else {
+            createAppView()
+        }
+
+        updateAppView(view, matchInfo)
+        return view
+    }
+
+    private fun createAppView(): LinearLayout {
+        val iconSize = dpToPx(90)
+
         return LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER
             setPadding(dpToPx(12), dpToPx(8), dpToPx(12), dpToPx(8))
 
-            val iconSize = dpToPx(90)  // Increased from 75dp to 90dp (20% larger)
+            // Create icon view
             val icon = ImageView(this@T9Activity).apply {
-                setImageDrawable(matchInfo.app.icon)
+                id = android.R.id.icon
                 layoutParams = LinearLayout.LayoutParams(iconSize, iconSize)
             }
 
+            // Create label view
             val label = TextView(this@T9Activity).apply {
-                // Highlight the matched portion of the app name
-                val spannable = SpannableString(matchInfo.app.name)
-                val matchStart = matchInfo.matchPosition
-                val matchEnd = matchStart + currentQuery.length
-
-                // Get theme-aware colors
-                val highlightColor = if (isLightTheme) {
-                    getColor(R.color.light_app_text_highlight)
-                } else {
-                    getColor(R.color.dark_app_text_highlight)
-                }
-
-                val normalColor = if (isLightTheme) {
-                    getColor(R.color.light_app_text)
-                } else {
-                    getColor(R.color.dark_app_text)
-                }
-
-                // Make matched text highlighted and bold
-                spannable.setSpan(
-                    ForegroundColorSpan(highlightColor),
-                    matchStart,
-                    matchEnd,
-                    Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
-                )
-                spannable.setSpan(
-                    StyleSpan(Typeface.BOLD),
-                    matchStart,
-                    matchEnd,
-                    Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
-                )
-
-                text = spannable
-                textSize = 13f  // Increased from 12f for better readability
-                setTextColor(normalColor)
+                id = android.R.id.text1
+                textSize = 13f
                 gravity = Gravity.CENTER
                 maxLines = 2
                 layoutParams = LinearLayout.LayoutParams(
-                    dpToPx(102),  // Increased from 85dp to accommodate larger icons
+                    dpToPx(102),
                     LinearLayout.LayoutParams.WRAP_CONTENT
                 ).apply {
                     topMargin = dpToPx(6)
@@ -532,15 +665,61 @@ class T9Activity : Activity() {
             addView(icon)
             addView(label)
 
-            // Launch app on click
-            setOnClickListener {
-                launchApp(matchInfo.app.packageName)
-            }
-
             // Make it look clickable
             isClickable = true
             isFocusable = true
             setBackgroundResource(android.R.drawable.list_selector_background)
+        }
+    }
+
+    private fun updateAppView(view: LinearLayout, matchInfo: MatchInfo) {
+        view.tag = matchInfo
+
+        val icon = view.findViewById<ImageView>(android.R.id.icon)
+        val label = view.findViewById<TextView>(android.R.id.text1)
+
+        // Set icon (use placeholder if not loaded yet, load in background)
+        icon.setImageDrawable(matchInfo.app.icon ?: getDrawable(android.R.drawable.sym_def_app_icon))
+        loadIconForApp(matchInfo.app, icon)
+
+        // Highlight the matched portion of the app name
+        val spannable = SpannableString(matchInfo.app.name)
+        val matchStart = matchInfo.matchPosition
+        val matchEnd = matchStart + currentQuery.length
+
+        // Get theme-aware colors
+        val highlightColor = if (isLightTheme) {
+            getColor(R.color.light_app_text_highlight)
+        } else {
+            getColor(R.color.dark_app_text_highlight)
+        }
+
+        val normalColor = if (isLightTheme) {
+            getColor(R.color.light_app_text)
+        } else {
+            getColor(R.color.dark_app_text)
+        }
+
+        // Make matched text highlighted and bold
+        spannable.setSpan(
+            ForegroundColorSpan(highlightColor),
+            matchStart,
+            matchEnd,
+            Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
+        )
+        spannable.setSpan(
+            StyleSpan(Typeface.BOLD),
+            matchStart,
+            matchEnd,
+            Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
+        )
+
+        label.text = spannable
+        label.setTextColor(normalColor)
+
+        // Launch app on click
+        view.setOnClickListener {
+            launchApp(matchInfo.app.packageName)
         }
     }
 
@@ -553,51 +732,36 @@ class T9Activity : Activity() {
     }
 
     private fun getMatchInfo(app: AppInfo, query: String): MatchInfo? {
-        val t9Map = mapOf(
-            '2' to "abc", '3' to "def", '4' to "ghi",
-            '5' to "jkl", '6' to "mno", '7' to "pqrs",
-            '8' to "tuv", '9' to "wxyz"
-        )
-
         if (query.isEmpty()) return null
 
-        val cleanName = app.name.lowercase()
-
-        // Helper function to check if query matches at a specific position
-        fun matchesAtPosition(startPos: Int): Boolean {
-            if (startPos + query.length > cleanName.length) return false
-
-            for (i in query.indices) {
-                val digit = query[i]
-                val letters = t9Map[digit] ?: continue
-                val char = cleanName[startPos + i]
-
-                if (!letters.contains(char)) {
-                    return false
-                }
-            }
-            return true
-        }
+        val t9Seq = app.t9Sequence  // Use pre-computed sequence
 
         // 1. Try matching from the beginning (highest priority)
-        if (matchesAtPosition(0)) {
+        if (t9Seq.startsWith(query)) {
             return MatchInfo(app, 0, 0)
         }
 
+        val cleanName = app.name.lowercase()
+
         // 2. Try matching from the start of each word (medium priority)
-        for (i in cleanName.indices) {
+        var i = 0
+        while (i < cleanName.length) {
             if (i > 0 && (cleanName[i - 1] == ' ' || !cleanName[i - 1].isLetter())) {
-                if (matchesAtPosition(i)) {
-                    return MatchInfo(app, i, 1)
+                // Check if T9 sequence matches at this position
+                if (i + query.length <= t9Seq.length) {
+                    val segment = t9Seq.substring(i, i + query.length)
+                    if (segment == query) {
+                        return MatchInfo(app, i, 1)
+                    }
                 }
             }
+            i++
         }
 
         // 3. Try matching anywhere in the name (lowest priority)
-        for (i in cleanName.indices) {
-            if (matchesAtPosition(i)) {
-                return MatchInfo(app, i, 2)
-            }
+        val matchIndex = t9Seq.indexOf(query)
+        if (matchIndex >= 0) {
+            return MatchInfo(app, matchIndex, 2)
         }
 
         return null
@@ -722,8 +886,11 @@ class T9Activity : Activity() {
                     }
                 }
 
-                // Reload apps with new icons
-                loadInstalledApps()
+                // Clear icon cache and reload
+                iconCache.clear()
+                for (app in allApps) {
+                    app.icon = null  // Clear loaded icons
+                }
                 updateAppsList()
 
                 // Show feedback message

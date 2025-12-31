@@ -9,11 +9,11 @@
         <item name="android:minHeight">60dp</item>
         <item name="android:stateListAnimator">@null</item>
         <item name="elevation">0dp</item>
-        <item name="rippleColor">#55FFFFFF</item> <!-- More visible white ripple on tap -->
+        <!-- Ripple color set programmatically based on theme -->
     </style>
 
     <style name="T9Key.Clear">
         <!-- Clear button with settings icon -->
-        <item name="rippleColor">#55FF5252</item> <!-- Red ripple for clear button -->
+        <!-- Ripple color set programmatically based on theme -->
     </style>
 </resources>

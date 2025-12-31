@@ -15,6 +15,12 @@
     <color name="light_app_text">#333333</color>
     <color name="light_app_text_highlight">#000000</color>
     <color name="light_border">#E0E0E0</color>
+    <color name="light_ripple">#66000000</color>
+    <color name="light_ripple_red">#99FF5252</color>
+
+    <!-- Dark Theme Ripple Colors -->
+    <color name="dark_ripple">#99FFFFFF</color>
+    <color name="dark_ripple_red">#99FF5252</color>
 
     <!-- Common Colors -->
     <color name="black_pure">#000000</color>
