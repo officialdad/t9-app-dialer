@@ -5,9 +5,9 @@
     android:id="@+id/mainCard"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:layout_marginBottom="100dp"
-    android:layout_marginStart="24dp"
-    android:layout_marginEnd="24dp"
+    android:layout_marginBottom="80dp"
+    android:layout_marginStart="40dp"
+    android:layout_marginEnd="40dp"
     android:layout_gravity="center_horizontal"
     app:cardBackgroundColor="@color/background"
     app:cardCornerRadius="16dp"
@@ -20,27 +20,20 @@
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:orientation="vertical"
-    android:padding="8dp"
+    android:padding="6dp"
     android:background="@color/background">
 
-    <!-- Top 3 Apps (Horizontal, Centered) - Fixed height area -->
-    <HorizontalScrollView
+    <!-- Top 3 Apps (Horizontal, Aligned with keys 1-2-3) - Fixed height area -->
+    <LinearLayout
+        android:id="@+id/appsContainer"
         android:layout_width="match_parent"
-        android:layout_height="150dp"
-        android:scrollbars="none"
-        android:layout_marginTop="24dp"
-        android:layout_marginBottom="12dp">
-
-        <LinearLayout
-            android:id="@+id/appsContainer"
-            android:layout_width="wrap_content"
-            android:layout_height="match_parent"
-            android:orientation="horizontal"
-            android:gravity="center"
-            android:layout_gravity="center">
-            <!-- App items will be added programmatically -->
-        </LinearLayout>
-    </HorizontalScrollView>
+        android:layout_height="120dp"
+        android:orientation="horizontal"
+        android:layout_marginTop="19dp"
+        android:layout_marginBottom="10dp"
+        android:gravity="center_vertical">
+        <!-- App items will be added programmatically with weight=1 to align with keys -->
+    </LinearLayout>
 
     <!-- T9 Keyboard (3x3 grid, buttons 1-9 only) -->
     <LinearLayout
@@ -58,7 +51,7 @@
                 android:id="@+id/btn1"
                 style="@style/T9Key.Clear"
                 android:layout_width="0dp"
-                android:layout_height="75dp"
+                android:layout_height="76dp"
                 android:layout_weight="1"
                 android:layout_margin="2dp"
                 android:text="1\nCLEAR"
@@ -69,7 +62,7 @@
                 android:id="@+id/btn2"
                 style="@style/T9Key"
                 android:layout_width="0dp"
-                android:layout_height="75dp"
+                android:layout_height="76dp"
                 android:layout_weight="1"
                 android:layout_margin="2dp"
                 android:text="2\nABC"
@@ -80,7 +73,7 @@
                 android:id="@+id/btn3"
                 style="@style/T9Key"
                 android:layout_width="0dp"
-                android:layout_height="75dp"
+                android:layout_height="76dp"
                 android:layout_weight="1"
                 android:layout_margin="2dp"
                 android:text="3\nDEF"
@@ -98,7 +91,7 @@
                 android:id="@+id/btn4"
                 style="@style/T9Key"
                 android:layout_width="0dp"
-                android:layout_height="75dp"
+                android:layout_height="76dp"
                 android:layout_weight="1"
                 android:layout_margin="2dp"
                 android:text="4\nGHI"
@@ -109,7 +102,7 @@
                 android:id="@+id/btn5"
                 style="@style/T9Key"
                 android:layout_width="0dp"
-                android:layout_height="75dp"
+                android:layout_height="76dp"
                 android:layout_weight="1"
                 android:layout_margin="2dp"
                 android:text="5\nJKL"
@@ -120,7 +113,7 @@
                 android:id="@+id/btn6"
                 style="@style/T9Key"
                 android:layout_width="0dp"
-                android:layout_height="75dp"
+                android:layout_height="76dp"
                 android:layout_weight="1"
                 android:layout_margin="2dp"
                 android:text="6\nMNO"
@@ -138,7 +131,7 @@
                 android:id="@+id/btn7"
                 style="@style/T9Key"
                 android:layout_width="0dp"
-                android:layout_height="75dp"
+                android:layout_height="76dp"
                 android:layout_weight="1"
                 android:layout_margin="2dp"
                 android:text="7\nPQRS"
@@ -149,7 +142,7 @@
                 android:id="@+id/btn8"
                 style="@style/T9Key"
                 android:layout_width="0dp"
-                android:layout_height="75dp"
+                android:layout_height="76dp"
                 android:layout_weight="1"
                 android:layout_margin="2dp"
                 android:text="8\nTUV"
@@ -160,7 +153,7 @@
                 android:id="@+id/btn9"
                 style="@style/T9Key"
                 android:layout_width="0dp"
-                android:layout_height="75dp"
+                android:layout_height="76dp"
                 android:layout_weight="1"
                 android:layout_margin="2dp"
                 android:text="9\nWXYZ"

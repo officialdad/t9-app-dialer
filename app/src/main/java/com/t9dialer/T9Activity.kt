@@ -616,6 +616,9 @@ class T9Activity : Activity() {
         // Add views with icons ready
         for (matchInfo in sortedApps) {
             val appView = getOrCreateAppView(matchInfo)
+            // Set layout params with weight to align with keys 1-2-3
+            val params = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.MATCH_PARENT, 1f)
+            appView.layoutParams = params
             appsContainer.addView(appView)
         }
 
@@ -684,12 +687,12 @@ class T9Activity : Activity() {
     }
 
     private fun createAppView(): LinearLayout {
-        val iconSize = dpToPx(90)
+        val iconSize = dpToPx(72)
 
         return LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER
-            setPadding(dpToPx(12), dpToPx(8), dpToPx(12), dpToPx(8))
+            setPadding(dpToPx(4), dpToPx(6), dpToPx(4), dpToPx(6))
 
             // Create icon view
             val icon = ImageView(this@T9Activity).apply {
@@ -700,14 +703,14 @@ class T9Activity : Activity() {
             // Create label view
             val label = TextView(this@T9Activity).apply {
                 id = android.R.id.text1
-                textSize = 13f
+                textSize = 12f
                 gravity = Gravity.CENTER
                 maxLines = 2
                 layoutParams = LinearLayout.LayoutParams(
-                    dpToPx(102),
+                    LinearLayout.LayoutParams.MATCH_PARENT,
                     LinearLayout.LayoutParams.WRAP_CONTENT
                 ).apply {
-                    topMargin = dpToPx(6)
+                    topMargin = dpToPx(4)
                 }
             }
 
