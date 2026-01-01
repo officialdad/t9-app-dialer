@@ -634,6 +634,10 @@ class T9Activity : Activity() {
                 setTextColor(textColor)
                 setPadding(dpToPx(16), dpToPx(16), dpToPx(16), dpToPx(16))
                 gravity = Gravity.CENTER
+                layoutParams = LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT,
+                    LinearLayout.LayoutParams.MATCH_PARENT
+                )
             }
             appsContainer.addView(noMatchView)
         }
