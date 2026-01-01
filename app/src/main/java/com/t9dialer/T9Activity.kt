@@ -38,6 +38,8 @@ import android.graphics.drawable.ColorDrawable
 import android.provider.Settings
 import android.net.Uri
 import android.content.ActivityNotFoundException
+import android.view.MotionEvent
+import android.graphics.Rect
 
 class T9Activity : Activity() {
 
@@ -108,6 +110,30 @@ class T9Activity : Activity() {
         }
 
         // Apps will be loaded on first key press for faster startup
+    }
+
+    override fun dispatchTouchEvent(ev: MotionEvent): Boolean {
+        // Check if touch is outside the main card
+        if (ev.action == MotionEvent.ACTION_DOWN) {
+            val mainCard = findViewById<com.google.android.material.card.MaterialCardView>(R.id.mainCard)
+            val outRect = IntArray(2)
+            mainCard.getLocationOnScreen(outRect)
+
+            val cardLeft = outRect[0]
+            val cardTop = outRect[1]
+            val cardRight = cardLeft + mainCard.width
+            val cardBottom = cardTop + mainCard.height
+
+            val x = ev.rawX.toInt()
+            val y = ev.rawY.toInt()
+
+            // If touch is outside the card bounds, finish the activity
+            if (x < cardLeft || x > cardRight || y < cardTop || y > cardBottom) {
+                finish()
+                return true
+            }
+        }
+        return super.dispatchTouchEvent(ev)
     }
 
     override fun onDestroy() {
