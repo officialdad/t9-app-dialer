@@ -56,6 +56,7 @@ class T9Activity : Activity() {
     private val iconCache = ConcurrentHashMap<String, Drawable>()
     private val viewPool = mutableListOf<LinearLayout>()
     private val mainScope = CoroutineScope(Dispatchers.Main + SupervisorJob())
+    private var cachedIconPacks: List<IconPackInfo>? = null
 
     data class AppInfo(
         val name: String,
@@ -98,6 +99,11 @@ class T9Activity : Activity() {
 
         // Apply theme
         applyTheme()
+
+        // Preload icon pack list in background for faster access
+        mainScope.launch(Dispatchers.IO) {
+            getInstalledIconPacks()
+        }
 
         // Apps will be loaded on first key press for faster startup
     }
@@ -527,17 +533,16 @@ class T9Activity : Activity() {
     }
 
     private fun updateAppsList() {
-        // Store old views for recycling
-        for (i in 0 until appsContainer.childCount) {
-            val child = appsContainer.getChildAt(i)
-            if (child is LinearLayout && child.tag is MatchInfo) {
-                viewPool.add(child)
-            }
-        }
-        appsContainer.removeAllViews()
-
         // Only show apps when there's a search query
         if (currentQuery.isEmpty()) {
+            // Store old views for recycling
+            for (i in 0 until appsContainer.childCount) {
+                val child = appsContainer.getChildAt(i)
+                if (child is LinearLayout && child.tag is MatchInfo) {
+                    viewPool.add(child)
+                }
+            }
+            appsContainer.removeAllViews()
             return
         }
 
@@ -546,7 +551,6 @@ class T9Activity : Activity() {
         var foundPriorityZero = 0
 
         // Early termination: stop after finding 3 priority-0 (beginning) matches
-        // or if we have 3+ matches and enough high-priority ones
         for (app in allApps) {
             // Stop if we have 3 apps starting with the query (priority 0)
             if (foundPriorityZero >= 3) break
@@ -567,7 +571,40 @@ class T9Activity : Activity() {
                 .thenBy { it.app.name })
             .take(3)
 
-        // Add top 3 apps to horizontal container
+        // Load icons first, then prepare views
+        for (matchInfo in sortedApps) {
+            // Ensure icon is loaded before displaying view
+            if (matchInfo.app.icon == null) {
+                val cacheKey = "${iconPackPackageName ?: "default"}_${matchInfo.app.packageName}"
+                val cachedIcon = iconCache[cacheKey]
+                if (cachedIcon != null) {
+                    matchInfo.app.icon = cachedIcon
+                } else {
+                    // Load icon synchronously for smooth appearance
+                    try {
+                        val icon = getIconFromPack(matchInfo.app.packageName)
+                            ?: packageManager.getApplicationIcon(matchInfo.app.packageName)
+                        iconCache[cacheKey] = icon
+                        matchInfo.app.icon = icon
+                    } catch (e: Exception) {
+                        // Use default if loading fails
+                        matchInfo.app.icon = getDrawable(android.R.drawable.sym_def_app_icon)
+                    }
+                }
+            }
+        }
+
+        // Now update container after all icons are loaded
+        // Store old views for recycling
+        for (i in 0 until appsContainer.childCount) {
+            val child = appsContainer.getChildAt(i)
+            if (child is LinearLayout && child.tag is MatchInfo) {
+                viewPool.add(child)
+            }
+        }
+        appsContainer.removeAllViews()
+
+        // Add views with icons ready
         for (matchInfo in sortedApps) {
             val appView = getOrCreateAppView(matchInfo)
             appsContainer.addView(appView)
@@ -681,9 +718,9 @@ class T9Activity : Activity() {
         val icon = view.findViewById<ImageView>(android.R.id.icon)
         val label = view.findViewById<TextView>(android.R.id.text1)
 
-        // Set icon (use placeholder if not loaded yet, load in background)
-        icon.setImageDrawable(matchInfo.app.icon ?: getDrawable(android.R.drawable.sym_def_app_icon))
-        loadIconForApp(matchInfo.app, icon)
+        // Set icon (should always be loaded at this point)
+        icon.setImageDrawable(matchInfo.app.icon)
+        icon.visibility = android.view.View.VISIBLE
 
         // Highlight the matched portion of the app name
         val spannable = SpannableString(matchInfo.app.name)
@@ -728,7 +765,7 @@ class T9Activity : Activity() {
         // Show context menu on long-press
         view.setOnLongClickListener {
             showAppContextMenu(matchInfo.app)
-            true  // Consume the event
+            true
         }
     }
 
@@ -785,6 +822,9 @@ class T9Activity : Activity() {
     }
 
     private fun getInstalledIconPacks(): List<IconPackInfo> {
+        // Return cached list if available
+        cachedIconPacks?.let { return it }
+
         val iconPacks = mutableListOf<IconPackInfo>()
 
         // Add "Default" option
@@ -858,6 +898,8 @@ class T9Activity : Activity() {
             }
         }
 
+        // Cache the result for future use
+        cachedIconPacks = iconPacks
         return iconPacks
     }
 
