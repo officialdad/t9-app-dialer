@@ -172,6 +172,9 @@ class T9Activity : Activity() {
 
         // Update button text colors
         updateButtonColors()
+
+        // Update theme toggle icon
+        updateThemeIcon()
     }
 
     private fun toggleTheme() {
@@ -263,6 +266,15 @@ class T9Activity : Activity() {
         stateList.setExitFadeDuration(0)
 
         return stateList
+    }
+
+    private fun updateThemeIcon() {
+        val btn2 = findViewById<MaterialButton>(R.id.btn2)
+        // Dark theme shows sun (to switch to light), light theme shows moon (to switch to dark)
+        val iconRes = if (isLightTheme) R.drawable.ic_moon else R.drawable.ic_sun
+        val themeIcon = getDrawable(iconRes)
+        themeIcon?.setBounds(0, 0, dpToPx(16), dpToPx(16))
+        btn2.setCompoundDrawables(null, null, themeIcon, null)
     }
 
     private fun updateButtonText(button: MaterialButton, isBtn1: Boolean,
@@ -451,11 +463,8 @@ class T9Activity : Activity() {
         clearButton.setCompoundDrawables(null, null, settingsIcon, null)
         clearButton.compoundDrawablePadding = dpToPx(4)
 
-        // Button 2: Add theme toggle icon
+        // Button 2: Add theme toggle icon (will be set in updateThemeIcon)
         val btn2 = findViewById<MaterialButton>(R.id.btn2)
-        val themeIcon = getDrawable(R.drawable.ic_theme)
-        themeIcon?.setBounds(0, 0, dpToPx(16), dpToPx(16))
-        btn2.setCompoundDrawables(null, null, themeIcon, null)
         btn2.compoundDrawablePadding = dpToPx(4)
 
         // Number buttons 2-9
