@@ -81,7 +81,9 @@ class T9Activity : Activity() {
         super.onCreate(savedInstanceState)
 
         // Position dialog at bottom of screen for one-handed use
-        window?.setGravity(Gravity.BOTTOM)
+        // In landscape, position at bottom-right corner
+        val isLandscape = resources.configuration.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
+        window?.setGravity(if (isLandscape) Gravity.BOTTOM or Gravity.END else Gravity.BOTTOM)
 
         setContentView(R.layout.activity_t9)
 
