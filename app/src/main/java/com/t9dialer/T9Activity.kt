@@ -708,7 +708,6 @@ class T9Activity : Activity() {
             // Make it look clickable
             isClickable = true
             isFocusable = true
-            setBackgroundResource(android.R.drawable.list_selector_background)
         }
     }
 
@@ -756,6 +755,14 @@ class T9Activity : Activity() {
 
         label.text = spannable
         label.setTextColor(normalColor)
+
+        // Apply theme-aware ripple effect (same as keyboard buttons)
+        val rippleColor = if (isLightTheme) {
+            getColor(R.color.light_ripple)
+        } else {
+            getColor(R.color.dark_ripple)
+        }
+        view.foreground = createRippleDrawable(rippleColor)
 
         // Launch app on click
         view.setOnClickListener {
