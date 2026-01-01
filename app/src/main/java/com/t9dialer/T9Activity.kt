@@ -491,7 +491,6 @@ class T9Activity : Activity() {
         // Load apps on first key press
         if (!appsLoaded) {
             loadInstalledApps()
-            appsLoaded = true
         }
 
         currentQuery += digit
@@ -527,6 +526,7 @@ class T9Activity : Activity() {
 
             withContext(Dispatchers.Main) {
                 allApps = apps
+                appsLoaded = true  // Mark as loaded after apps are ready
                 updateAppsList()  // Refresh UI if search is active
             }
         }
@@ -610,8 +610,8 @@ class T9Activity : Activity() {
             appsContainer.addView(appView)
         }
 
-        // Show message if no matches
-        if (sortedApps.isEmpty() && currentQuery.isNotEmpty()) {
+        // Show message if no matches (but only if apps have finished loading)
+        if (sortedApps.isEmpty() && currentQuery.isNotEmpty() && appsLoaded) {
             val textColor = if (isLightTheme) {
                 getColor(R.color.light_app_text)
             } else {
