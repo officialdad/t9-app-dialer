@@ -1,5 +1,7 @@
 <div align="center">
 
+<img width="128" height="128" alt="t9-app-dialer" src="icon.png" />
+
 # T9 App Dialer
 
 **A minimalist Android launcher with T9 keypad search**
@@ -23,7 +25,7 @@
 
 - **Landscape Mode** - Optimized for one-handed use
 
-- **Performance** - Lightning fast
+- **Performance** - Blazingly fast
 
 ## Usage
 
