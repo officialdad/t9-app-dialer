@@ -35,6 +35,9 @@ import android.graphics.drawable.shapes.RoundRectShape
 import android.content.res.ColorStateList
 import android.graphics.drawable.StateListDrawable
 import android.graphics.drawable.ColorDrawable
+import android.provider.Settings
+import android.net.Uri
+import android.content.ActivityNotFoundException
 
 class T9Activity : Activity() {
 
@@ -721,6 +724,12 @@ class T9Activity : Activity() {
         view.setOnClickListener {
             launchApp(matchInfo.app.packageName)
         }
+
+        // Show context menu on long-press
+        view.setOnLongClickListener {
+            showAppContextMenu(matchInfo.app)
+            true  // Consume the event
+        }
     }
 
     private fun dpToPx(dp: Int): Int {
@@ -911,6 +920,38 @@ class T9Activity : Activity() {
                 toastView?.findViewById<ImageView>(android.R.id.icon)?.visibility = android.view.View.GONE
                 toast.show()
 
+                dialog.dismiss()
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
+    }
+
+    private fun showAppContextMenu(app: AppInfo) {
+        val options = arrayOf("App Info", "Open in Play Store")
+
+        AlertDialog.Builder(this)
+            .setTitle(app.name)
+            .setItems(options) { dialog, which ->
+                when (which) {
+                    0 -> {
+                        // App Info - Open system settings
+                        val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
+                        intent.data = Uri.parse("package:${app.packageName}")
+                        startActivity(intent)
+                    }
+                    1 -> {
+                        // Open in Play Store
+                        try {
+                            // Try to open in Play Store app
+                            val intent = Intent(Intent.ACTION_VIEW, Uri.parse("market://details?id=${app.packageName}"))
+                            startActivity(intent)
+                        } catch (e: ActivityNotFoundException) {
+                            // Fallback to Play Store web page if app not installed
+                            val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://play.google.com/store/apps/details?id=${app.packageName}"))
+                            startActivity(intent)
+                        }
+                    }
+                }
                 dialog.dismiss()
             }
             .setNegativeButton("Cancel", null)
