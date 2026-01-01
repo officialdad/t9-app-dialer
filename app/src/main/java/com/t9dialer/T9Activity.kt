@@ -191,10 +191,6 @@ class T9Activity : Activity() {
 
         // Refresh app list to update text colors
         updateAppsList()
-
-        // Show toast
-        val message = if (isLightTheme) "Light theme" else "Dark theme"
-        Toast.makeText(this, message, Toast.LENGTH_SHORT).show()
     }
 
     private fun updateButtonColors() {
@@ -977,11 +973,8 @@ class T9Activity : Activity() {
                     }
                 }
 
-                // Create toast without icon
-                val toast = Toast.makeText(this, message, Toast.LENGTH_SHORT)
-                val toastView = toast.view
-                toastView?.findViewById<ImageView>(android.R.id.icon)?.visibility = android.view.View.GONE
-                toast.show()
+                // Show feedback toast
+                Toast.makeText(this, message, Toast.LENGTH_SHORT).show()
 
                 dialog.dismiss()
             }
