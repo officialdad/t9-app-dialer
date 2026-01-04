@@ -241,6 +241,11 @@ class T9Activity : Activity() {
 
     private fun applyDialogPosition() {
         window?.let { win ->
+            // Allow window to be positioned freely (including partial off-screen)
+            win.setFlags(
+                android.view.WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
+                android.view.WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS
+            )
             val params = win.attributes
             params.gravity = Gravity.TOP or Gravity.START
             params.x = dialogX
