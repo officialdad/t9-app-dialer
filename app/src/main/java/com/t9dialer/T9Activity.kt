@@ -70,6 +70,15 @@ class T9Activity : Activity() {
     private var initialDialogY = 0
     private var hasCustomPosition = false
 
+    // Helper to get orientation suffix for preference keys
+    private fun getOrientationSuffix(): String {
+        return if (resources.configuration.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE) {
+            "_landscape"
+        } else {
+            "_portrait"
+        }
+    }
+
     data class AppInfo(
         val name: String,
         val packageName: String,
@@ -240,10 +249,12 @@ class T9Activity : Activity() {
 
     private fun loadPositionPreference() {
         val prefs = getSharedPreferences("T9Dialer", Context.MODE_PRIVATE)
-        hasCustomPosition = prefs.getBoolean("has_custom_position", false)
+        val suffix = getOrientationSuffix()
+
+        hasCustomPosition = prefs.getBoolean("has_custom_position$suffix", false)
         if (hasCustomPosition) {
-            dialogX = prefs.getInt("dialog_x", 0)
-            dialogY = prefs.getInt("dialog_y", 0)
+            dialogX = prefs.getInt("dialog_x$suffix", 0)
+            dialogY = prefs.getInt("dialog_y$suffix", 0)
 
             // Validate position is within reasonable screen bounds
             val displayMetrics = resources.displayMetrics
@@ -256,11 +267,11 @@ class T9Activity : Activity() {
                 hasCustomPosition = false
                 dialogX = 0
                 dialogY = 0
-                // Clear invalid saved position
+                // Clear invalid saved position for this orientation
                 prefs.edit()
-                    .remove("has_custom_position")
-                    .remove("dialog_x")
-                    .remove("dialog_y")
+                    .remove("has_custom_position$suffix")
+                    .remove("dialog_x$suffix")
+                    .remove("dialog_y$suffix")
                     .apply()
             }
         }
@@ -268,10 +279,12 @@ class T9Activity : Activity() {
 
     private fun savePositionPreference() {
         val prefs = getSharedPreferences("T9Dialer", Context.MODE_PRIVATE)
+        val suffix = getOrientationSuffix()
+
         prefs.edit()
-            .putBoolean("has_custom_position", true)
-            .putInt("dialog_x", dialogX)
-            .putInt("dialog_y", dialogY)
+            .putBoolean("has_custom_position$suffix", true)
+            .putInt("dialog_x$suffix", dialogX)
+            .putInt("dialog_y$suffix", dialogY)
             .apply()
         hasCustomPosition = true
     }
@@ -308,10 +321,12 @@ class T9Activity : Activity() {
 
     private fun resetPosition() {
         val prefs = getSharedPreferences("T9Dialer", Context.MODE_PRIVATE)
+        val suffix = getOrientationSuffix()
+
         prefs.edit()
-            .remove("has_custom_position")
-            .remove("dialog_x")
-            .remove("dialog_y")
+            .remove("has_custom_position$suffix")
+            .remove("dialog_x$suffix")
+            .remove("dialog_y$suffix")
             .apply()
         hasCustomPosition = false
         dialogX = 0
@@ -322,6 +337,26 @@ class T9Activity : Activity() {
         window?.setGravity(if (isLandscape) Gravity.BOTTOM or Gravity.END else Gravity.BOTTOM)
 
         Toast.makeText(this, "Position reset to default", Toast.LENGTH_SHORT).show()
+    }
+
+    override fun onConfigurationChanged(newConfig: android.content.res.Configuration) {
+        super.onConfigurationChanged(newConfig)
+
+        // Exit move mode if active during orientation change
+        if (isMoveModeActive) {
+            isMoveModeActive = false
+        }
+
+        // Load position preference for new orientation
+        loadPositionPreference()
+
+        // Apply custom position or default gravity for new orientation
+        if (hasCustomPosition) {
+            applyDialogPosition()
+        } else {
+            val isLandscape = newConfig.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
+            window?.setGravity(if (isLandscape) Gravity.BOTTOM or Gravity.END else Gravity.BOTTOM)
+        }
     }
 
     private fun applyTheme() {

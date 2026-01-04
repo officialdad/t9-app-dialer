@@ -21,6 +21,7 @@
             android:name=".T9Activity"
             android:exported="true"
             android:excludeFromRecents="true"
+            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize"
             android:theme="@style/Theme.App.Dialog">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
