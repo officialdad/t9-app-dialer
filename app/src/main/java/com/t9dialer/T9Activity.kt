@@ -62,6 +62,7 @@ class T9Activity : Activity() {
 
     // Move mode state for repositioning the dialog
     private var isMoveModeActive = false
+    private var pendingMoveMode = false  // Wait for finger release before activating
     private var dialogX = 0
     private var dialogY = 0
     private var initialTouchX = 0f
@@ -142,6 +143,13 @@ class T9Activity : Activity() {
     }
 
     override fun dispatchTouchEvent(ev: MotionEvent): Boolean {
+        // Handle pending move mode - activate on finger release
+        if (pendingMoveMode && ev.action == MotionEvent.ACTION_UP) {
+            pendingMoveMode = false
+            enterMoveMode()
+            return true
+        }
+
         // Handle move mode - free dragging, long-press button 3 to save
         if (isMoveModeActive) {
             when (ev.action) {
@@ -298,6 +306,20 @@ class T9Activity : Activity() {
         }
     }
 
+    private fun enterPendingMoveMode() {
+        pendingMoveMode = true
+
+        // Visual feedback: highlight border immediately
+        val mainCard = findViewById<com.google.android.material.card.MaterialCardView>(R.id.mainCard)
+        savedStrokeColor = mainCard.strokeColor
+        savedStrokeWidth = mainCard.strokeWidth
+        mainCard.strokeColor = getColor(R.color.move_mode_highlight)
+        mainCard.strokeWidth = dpToPx(3)
+
+        // Show instruction to release
+        showMoveStatus("Release to move")
+    }
+
     private fun enterMoveMode() {
         // Capture actual window position before entering move mode
         val mainCard = findViewById<com.google.android.material.card.MaterialCardView>(R.id.mainCard)
@@ -312,11 +334,13 @@ class T9Activity : Activity() {
         initialDialogX = dialogX
         initialDialogY = dialogY
 
-        // Visual feedback: highlight border
-        savedStrokeColor = mainCard.strokeColor
-        savedStrokeWidth = mainCard.strokeWidth
-        mainCard.strokeColor = getColor(R.color.move_mode_highlight)
-        mainCard.strokeWidth = dpToPx(3)
+        // Visual feedback already applied in enterPendingMoveMode, ensure it's set
+        if (savedStrokeColor == 0) {
+            savedStrokeColor = mainCard.strokeColor
+            savedStrokeWidth = mainCard.strokeWidth
+            mainCard.strokeColor = getColor(R.color.move_mode_highlight)
+            mainCard.strokeWidth = dpToPx(3)
+        }
 
         isMoveModeActive = true
         updateButton3Icon()
@@ -399,6 +423,16 @@ class T9Activity : Activity() {
 
     override fun onConfigurationChanged(newConfig: android.content.res.Configuration) {
         super.onConfigurationChanged(newConfig)
+
+        // Cancel pending move mode on orientation change
+        if (pendingMoveMode) {
+            pendingMoveMode = false
+            // Restore visual feedback
+            val mainCard = findViewById<com.google.android.material.card.MaterialCardView>(R.id.mainCard)
+            mainCard.strokeColor = savedStrokeColor
+            mainCard.strokeWidth = savedStrokeWidth
+            updateAppsList()
+        }
 
         // Exit move mode if active during orientation change (cancel without saving)
         if (isMoveModeActive) {
@@ -773,7 +807,9 @@ class T9Activity : Activity() {
                 // Already in move mode, save position and exit
                 exitMoveMode(true)
             } else {
-                enterMoveMode()
+                // Enter pending state with visual feedback
+                // Move mode fully activates when finger is released
+                enterPendingMoveMode()
             }
             true
         }
