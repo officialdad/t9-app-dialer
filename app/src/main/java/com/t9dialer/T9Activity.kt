@@ -69,6 +69,8 @@ class T9Activity : Activity() {
     private var initialDialogX = 0
     private var initialDialogY = 0
     private var hasCustomPosition = false
+    private var savedStrokeColor = 0
+    private var savedStrokeWidth = 0
 
     // Helper to get orientation suffix for preference keys
     private fun getOrientationSuffix(): String {
@@ -175,7 +177,9 @@ class T9Activity : Activity() {
                     return true
                 }
                 MotionEvent.ACTION_UP -> {
-                    exitMoveMode()
+                    // Save if released on button 3, cancel otherwise
+                    val save = isTouchOnButton3(ev)
+                    exitMoveMode(save)
                     return true
                 }
             }
@@ -309,14 +313,50 @@ class T9Activity : Activity() {
         dialogX = location[0]
         dialogY = location[1]
 
+        // Store initial position for cancel/revert
+        initialDialogX = dialogX
+        initialDialogY = dialogY
+
+        // Visual feedback: highlight border
+        savedStrokeColor = mainCard.strokeColor
+        savedStrokeWidth = mainCard.strokeWidth
+        mainCard.strokeColor = getColor(R.color.move_mode_highlight)
+        mainCard.strokeWidth = dpToPx(3)
+
         isMoveModeActive = true
-        Toast.makeText(this, "Move mode: Drag to reposition", Toast.LENGTH_SHORT).show()
+        Toast.makeText(this, "Drag to move • Release on [3] to save", Toast.LENGTH_SHORT).show()
     }
 
-    private fun exitMoveMode() {
+    private fun exitMoveMode(save: Boolean) {
         isMoveModeActive = false
-        savePositionPreference()
-        Toast.makeText(this, "Position saved", Toast.LENGTH_SHORT).show()
+
+        // Restore visual feedback
+        val mainCard = findViewById<com.google.android.material.card.MaterialCardView>(R.id.mainCard)
+        mainCard.strokeColor = savedStrokeColor
+        mainCard.strokeWidth = savedStrokeWidth
+
+        if (save) {
+            savePositionPreference()
+            Toast.makeText(this, "Position saved", Toast.LENGTH_SHORT).show()
+        } else {
+            // Revert to previous position
+            dialogX = initialDialogX
+            dialogY = initialDialogY
+            applyDialogPosition()
+            Toast.makeText(this, "Move cancelled", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    private fun isTouchOnButton3(ev: MotionEvent): Boolean {
+        val btn3 = findViewById<MaterialButton>(R.id.btn3)
+        val location = IntArray(2)
+        btn3.getLocationOnScreen(location)
+
+        val x = ev.rawX.toInt()
+        val y = ev.rawY.toInt()
+
+        return x >= location[0] && x <= location[0] + btn3.width &&
+               y >= location[1] && y <= location[1] + btn3.height
     }
 
     private fun resetPosition() {
@@ -342,8 +382,12 @@ class T9Activity : Activity() {
     override fun onConfigurationChanged(newConfig: android.content.res.Configuration) {
         super.onConfigurationChanged(newConfig)
 
-        // Exit move mode if active during orientation change
+        // Exit move mode if active during orientation change (cancel without saving)
         if (isMoveModeActive) {
+            // Restore visual feedback
+            val mainCard = findViewById<com.google.android.material.card.MaterialCardView>(R.id.mainCard)
+            mainCard.strokeColor = savedStrokeColor
+            mainCard.strokeWidth = savedStrokeWidth
             isMoveModeActive = false
         }
 
@@ -709,8 +753,8 @@ class T9Activity : Activity() {
         // Long-press button 3 to enter move mode, double long-press to reset position
         btn3.setOnLongClickListener {
             if (isMoveModeActive) {
-                // Already in move mode, reset position
-                exitMoveMode()
+                // Already in move mode, cancel and reset position
+                exitMoveMode(false)
                 resetPosition()
             } else {
                 enterMoveMode()

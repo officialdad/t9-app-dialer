@@ -26,6 +26,7 @@
     <color name="black_pure">#000000</color>
     <color name="white">#FFFFFF</color>
     <color name="key_clear">#FF5252</color>
+    <color name="move_mode_highlight">#FFA726</color>
 
     <!-- Dynamic Colors (will be set programmatically) -->
     <color name="background">@color/dark_background</color>
