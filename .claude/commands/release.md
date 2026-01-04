@@ -13,3 +13,4 @@ Prepare a new release version (CI/CD handles the actual build):
 5. Create matching git tag: `git tag vX.Y.Z`
 6. Push commit and tag: `git push && git push --tags`
 7. Report that GitHub Actions will build and release the APK
+8. Summarize commits up to this version and use gh cli for creating release notes accordingly `gh release edit <tag> -n <string>`, the notes should notably highlights new features and improvements only matters to an end user
