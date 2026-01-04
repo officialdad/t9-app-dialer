@@ -23,6 +23,16 @@ jobs:
       - name: Remove Termux-specific AAPT2 path
         run: sed -i 's/^android.aapt2FromMavenOverride=/#&/' gradle.properties
 
+      - name: Cache Gradle dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
+          restore-keys: |
+            ${{ runner.os }}-gradle-
+
       - name: Build and sign APK
         uses: WaterLemons2k/apk-action@v1
         with:
