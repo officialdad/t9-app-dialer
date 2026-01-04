@@ -320,7 +320,7 @@ class T9Activity : Activity() {
 
         isMoveModeActive = true
         updateButton3Icon()
-        Toast.makeText(this, "Move mode • Hold [3] to save", Toast.LENGTH_SHORT).show()
+        showMoveStatus("Move mode • Hold [3] to save")
     }
 
     private fun exitMoveMode(save: Boolean) {
@@ -336,14 +336,45 @@ class T9Activity : Activity() {
 
         if (save) {
             savePositionPreference()
-            Toast.makeText(this, "Position saved", Toast.LENGTH_SHORT).show()
+            showMoveStatus("Position saved")
+            // Clear status after a short delay and restore app list
+            mainScope.launch {
+                delay(800)
+                if (!isMoveModeActive) {
+                    updateAppsList()
+                }
+            }
         } else {
             // Revert to previous position
             dialogX = initialDialogX
             dialogY = initialDialogY
             applyDialogPosition()
-            Toast.makeText(this, "Move cancelled", Toast.LENGTH_SHORT).show()
+            updateAppsList()
         }
+    }
+
+    private fun showMoveStatus(message: String) {
+        // Clear appsContainer and show status message
+        appsContainer.removeAllViews()
+
+        val textColor = if (isLightTheme) {
+            getColor(R.color.light_app_text)
+        } else {
+            getColor(R.color.dark_app_text)
+        }
+
+        val statusView = TextView(this).apply {
+            text = message
+            textSize = 16f
+            setTextColor(getColor(R.color.move_mode_highlight))
+            setPadding(dpToPx(16), dpToPx(16), dpToPx(16), dpToPx(16))
+            gravity = Gravity.CENTER
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.MATCH_PARENT
+            )
+        }
+        appsContainer.addView(statusView)
     }
 
     private fun resetPosition() {
@@ -760,6 +791,9 @@ class T9Activity : Activity() {
     }
 
     private fun addDigit(digit: Char) {
+        // Block input during move mode
+        if (isMoveModeActive) return
+
         // Load apps on first key press
         if (!appsLoaded) {
             loadInstalledApps()
