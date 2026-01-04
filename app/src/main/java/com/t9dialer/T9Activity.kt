@@ -60,6 +60,16 @@ class T9Activity : Activity() {
     private val mainScope = CoroutineScope(Dispatchers.Main + SupervisorJob())
     private var cachedIconPacks: List<IconPackInfo>? = null
 
+    // Move mode state for repositioning the dialog
+    private var isMoveModeActive = false
+    private var dialogX = 0
+    private var dialogY = 0
+    private var initialTouchX = 0f
+    private var initialTouchY = 0f
+    private var initialDialogX = 0
+    private var initialDialogY = 0
+    private var hasCustomPosition = false
+
     data class AppInfo(
         val name: String,
         val packageName: String,
@@ -82,10 +92,18 @@ class T9Activity : Activity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        // Position dialog at bottom of screen for one-handed use
-        // In landscape, position at bottom-right corner
-        val isLandscape = resources.configuration.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
-        window?.setGravity(if (isLandscape) Gravity.BOTTOM or Gravity.END else Gravity.BOTTOM)
+        // Load position preference first
+        loadPositionPreference()
+
+        // Apply custom position or default gravity
+        if (hasCustomPosition) {
+            applyDialogPosition()
+        } else {
+            // Position dialog at bottom of screen for one-handed use
+            // In landscape, position at bottom-right corner
+            val isLandscape = resources.configuration.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
+            window?.setGravity(if (isLandscape) Gravity.BOTTOM or Gravity.END else Gravity.BOTTOM)
+        }
 
         setContentView(R.layout.activity_t9)
 
@@ -113,6 +131,29 @@ class T9Activity : Activity() {
     }
 
     override fun dispatchTouchEvent(ev: MotionEvent): Boolean {
+        // Handle move mode - drag to reposition dialog
+        if (isMoveModeActive) {
+            when (ev.action) {
+                MotionEvent.ACTION_DOWN -> {
+                    initialTouchX = ev.rawX
+                    initialTouchY = ev.rawY
+                    initialDialogX = dialogX
+                    initialDialogY = dialogY
+                    return true
+                }
+                MotionEvent.ACTION_MOVE -> {
+                    dialogX = initialDialogX + (ev.rawX - initialTouchX).toInt()
+                    dialogY = initialDialogY + (ev.rawY - initialTouchY).toInt()
+                    applyDialogPosition()
+                    return true
+                }
+                MotionEvent.ACTION_UP -> {
+                    exitMoveMode()
+                    return true
+                }
+            }
+        }
+
         // Check if touch is outside the main card
         if (ev.action == MotionEvent.ACTION_DOWN) {
             val mainCard = findViewById<com.google.android.material.card.MaterialCardView>(R.id.mainCard)
@@ -177,6 +218,64 @@ class T9Activity : Activity() {
                 prefs.edit().remove("icon_pack").apply()
             }
         }
+    }
+
+    private fun loadPositionPreference() {
+        val prefs = getSharedPreferences("T9Dialer", Context.MODE_PRIVATE)
+        hasCustomPosition = prefs.getBoolean("has_custom_position", false)
+        if (hasCustomPosition) {
+            dialogX = prefs.getInt("dialog_x", 0)
+            dialogY = prefs.getInt("dialog_y", 0)
+        }
+    }
+
+    private fun savePositionPreference() {
+        val prefs = getSharedPreferences("T9Dialer", Context.MODE_PRIVATE)
+        prefs.edit()
+            .putBoolean("has_custom_position", true)
+            .putInt("dialog_x", dialogX)
+            .putInt("dialog_y", dialogY)
+            .apply()
+        hasCustomPosition = true
+    }
+
+    private fun applyDialogPosition() {
+        window?.let { win ->
+            val params = win.attributes
+            params.gravity = Gravity.TOP or Gravity.START
+            params.x = dialogX
+            params.y = dialogY
+            win.attributes = params
+        }
+    }
+
+    private fun enterMoveMode() {
+        isMoveModeActive = true
+        Toast.makeText(this, "Move mode: Drag to reposition", Toast.LENGTH_SHORT).show()
+    }
+
+    private fun exitMoveMode() {
+        isMoveModeActive = false
+        savePositionPreference()
+        Toast.makeText(this, "Position saved", Toast.LENGTH_SHORT).show()
+    }
+
+    private fun resetPosition() {
+        val prefs = getSharedPreferences("T9Dialer", Context.MODE_PRIVATE)
+        prefs.edit()
+            .remove("has_custom_position")
+            .remove("dialog_x")
+            .remove("dialog_y")
+            .apply()
+        hasCustomPosition = false
+        dialogX = 0
+        dialogY = 0
+
+        // Restore default gravity
+        val isLandscape = resources.configuration.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
+        window?.setGravity(if (isLandscape) Gravity.BOTTOM or Gravity.END else Gravity.BOTTOM)
+
+        Toast.makeText(this, "Position reset to default", Toast.LENGTH_SHORT).show()
     }
 
     private fun applyTheme() {
@@ -516,6 +615,25 @@ class T9Activity : Activity() {
         // Long-press button 2 to toggle theme
         btn2.setOnLongClickListener {
             toggleTheme()
+            true
+        }
+
+        // Button 3: Add move icon and long-press to enter move mode
+        val btn3 = findViewById<MaterialButton>(R.id.btn3)
+        val moveIcon = getDrawable(R.drawable.ic_move)
+        moveIcon?.setBounds(0, 0, dpToPx(16), dpToPx(16))
+        btn3.setCompoundDrawables(null, null, moveIcon, null)
+        btn3.compoundDrawablePadding = dpToPx(4)
+
+        // Long-press button 3 to enter move mode, double long-press to reset position
+        btn3.setOnLongClickListener {
+            if (isMoveModeActive) {
+                // Already in move mode, reset position
+                exitMoveMode()
+                resetPosition()
+            } else {
+                enterMoveMode()
+            }
             true
         }
     }
