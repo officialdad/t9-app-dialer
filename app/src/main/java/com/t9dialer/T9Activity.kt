@@ -142,8 +142,26 @@ class T9Activity : Activity() {
                     return true
                 }
                 MotionEvent.ACTION_MOVE -> {
-                    dialogX = initialDialogX + (ev.rawX - initialTouchX).toInt()
-                    dialogY = initialDialogY + (ev.rawY - initialTouchY).toInt()
+                    val newX = initialDialogX + (ev.rawX - initialTouchX).toInt()
+                    val newY = initialDialogY + (ev.rawY - initialTouchY).toInt()
+
+                    // Get screen dimensions and dialog size for bounds clamping
+                    val displayMetrics = resources.displayMetrics
+                    val screenWidth = displayMetrics.widthPixels
+                    val screenHeight = displayMetrics.heightPixels
+                    val mainCard = findViewById<com.google.android.material.card.MaterialCardView>(R.id.mainCard)
+                    val cardWidth = mainCard.width
+                    val cardHeight = mainCard.height
+
+                    // Clamp to keep at least 25% of dialog visible on screen
+                    val minVisible = 0.25
+                    val minX = -(cardWidth * (1 - minVisible)).toInt()
+                    val maxX = (screenWidth - cardWidth * minVisible).toInt()
+                    val minY = 0  // Don't go above status bar
+                    val maxY = (screenHeight - cardHeight * minVisible).toInt()
+
+                    dialogX = newX.coerceIn(minX, maxX)
+                    dialogY = newY.coerceIn(minY, maxY)
                     applyDialogPosition()
                     return true
                 }
@@ -226,6 +244,25 @@ class T9Activity : Activity() {
         if (hasCustomPosition) {
             dialogX = prefs.getInt("dialog_x", 0)
             dialogY = prefs.getInt("dialog_y", 0)
+
+            // Validate position is within reasonable screen bounds
+            val displayMetrics = resources.displayMetrics
+            val screenWidth = displayMetrics.widthPixels
+            val screenHeight = displayMetrics.heightPixels
+
+            // If position would place dialog mostly off-screen, reset to default
+            if (dialogX < -screenWidth / 2 || dialogX > screenWidth ||
+                dialogY < 0 || dialogY > screenHeight) {
+                hasCustomPosition = false
+                dialogX = 0
+                dialogY = 0
+                // Clear invalid saved position
+                prefs.edit()
+                    .remove("has_custom_position")
+                    .remove("dialog_x")
+                    .remove("dialog_y")
+                    .apply()
+            }
         }
     }
 
@@ -241,11 +278,6 @@ class T9Activity : Activity() {
 
     private fun applyDialogPosition() {
         window?.let { win ->
-            // Allow window to be positioned freely (including partial off-screen)
-            win.setFlags(
-                android.view.WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
-                android.view.WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS
-            )
             val params = win.attributes
             params.gravity = Gravity.TOP or Gravity.START
             params.x = dialogX
@@ -255,6 +287,15 @@ class T9Activity : Activity() {
     }
 
     private fun enterMoveMode() {
+        // Capture actual window position before entering move mode
+        val mainCard = findViewById<com.google.android.material.card.MaterialCardView>(R.id.mainCard)
+        val location = IntArray(2)
+        mainCard.getLocationOnScreen(location)
+
+        // Set dialogX/Y to current actual position so drag starts from here
+        dialogX = location[0]
+        dialogY = location[1]
+
         isMoveModeActive = true
         Toast.makeText(this, "Move mode: Drag to reposition", Toast.LENGTH_SHORT).show()
     }
