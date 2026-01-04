@@ -142,7 +142,7 @@ class T9Activity : Activity() {
     }
 
     override fun dispatchTouchEvent(ev: MotionEvent): Boolean {
-        // Handle move mode - drag to reposition dialog
+        // Handle move mode - free dragging, long-press button 3 to save
         if (isMoveModeActive) {
             when (ev.action) {
                 MotionEvent.ACTION_DOWN -> {
@@ -150,7 +150,6 @@ class T9Activity : Activity() {
                     initialTouchY = ev.rawY
                     initialDialogX = dialogX
                     initialDialogY = dialogY
-                    return true
                 }
                 MotionEvent.ACTION_MOVE -> {
                     val newX = initialDialogX + (ev.rawX - initialTouchX).toInt()
@@ -174,15 +173,11 @@ class T9Activity : Activity() {
                     dialogX = newX.coerceIn(minX, maxX)
                     dialogY = newY.coerceIn(minY, maxY)
                     applyDialogPosition()
-                    return true
                 }
-                MotionEvent.ACTION_UP -> {
-                    // Save if released on button 3, cancel otherwise
-                    val save = isTouchOnButton3(ev)
-                    exitMoveMode(save)
-                    return true
-                }
+                // ACTION_UP: Stay in move mode, user saves by long-pressing button 3
             }
+            // Let touch events pass through to buttons so long-press works
+            return super.dispatchTouchEvent(ev)
         }
 
         // Check if touch is outside the main card
@@ -324,7 +319,8 @@ class T9Activity : Activity() {
         mainCard.strokeWidth = dpToPx(3)
 
         isMoveModeActive = true
-        Toast.makeText(this, "Drag to move • Release on [3] to save", Toast.LENGTH_SHORT).show()
+        updateButton3Icon()
+        Toast.makeText(this, "Move mode • Hold [3] to save", Toast.LENGTH_SHORT).show()
     }
 
     private fun exitMoveMode(save: Boolean) {
@@ -334,6 +330,9 @@ class T9Activity : Activity() {
         val mainCard = findViewById<com.google.android.material.card.MaterialCardView>(R.id.mainCard)
         mainCard.strokeColor = savedStrokeColor
         mainCard.strokeWidth = savedStrokeWidth
+
+        // Update icon back to move
+        updateButton3Icon()
 
         if (save) {
             savePositionPreference()
@@ -345,18 +344,6 @@ class T9Activity : Activity() {
             applyDialogPosition()
             Toast.makeText(this, "Move cancelled", Toast.LENGTH_SHORT).show()
         }
-    }
-
-    private fun isTouchOnButton3(ev: MotionEvent): Boolean {
-        val btn3 = findViewById<MaterialButton>(R.id.btn3)
-        val location = IntArray(2)
-        btn3.getLocationOnScreen(location)
-
-        val x = ev.rawX.toInt()
-        val y = ev.rawY.toInt()
-
-        return x >= location[0] && x <= location[0] + btn3.width &&
-               y >= location[1] && y <= location[1] + btn3.height
     }
 
     private fun resetPosition() {
@@ -389,6 +376,7 @@ class T9Activity : Activity() {
             mainCard.strokeColor = savedStrokeColor
             mainCard.strokeWidth = savedStrokeWidth
             isMoveModeActive = false
+            updateButton3Icon()
         }
 
         // Load position preference for new orientation
@@ -743,24 +731,32 @@ class T9Activity : Activity() {
             true
         }
 
-        // Button 3: Add move icon and long-press to enter move mode
+        // Button 3: Add move icon and long-press to toggle move mode
         val btn3 = findViewById<MaterialButton>(R.id.btn3)
-        val moveIcon = getDrawable(R.drawable.ic_move)
-        moveIcon?.setBounds(0, 0, dpToPx(16), dpToPx(16))
-        btn3.setCompoundDrawables(null, null, moveIcon, null)
+        updateButton3Icon()
         btn3.compoundDrawablePadding = dpToPx(4)
 
-        // Long-press button 3 to enter move mode, double long-press to reset position
+        // Long-press button 3 to toggle move mode (enter/save)
         btn3.setOnLongClickListener {
             if (isMoveModeActive) {
-                // Already in move mode, cancel and reset position
-                exitMoveMode(false)
-                resetPosition()
+                // Already in move mode, save position and exit
+                exitMoveMode(true)
             } else {
                 enterMoveMode()
             }
             true
         }
+    }
+
+    private fun updateButton3Icon() {
+        val btn3 = findViewById<MaterialButton>(R.id.btn3)
+        val icon = if (isMoveModeActive) {
+            getDrawable(R.drawable.ic_save)
+        } else {
+            getDrawable(R.drawable.ic_move)
+        }
+        icon?.setBounds(0, 0, dpToPx(16), dpToPx(16))
+        btn3.setCompoundDrawables(null, null, icon, null)
     }
 
     private fun addDigit(digit: Char) {
