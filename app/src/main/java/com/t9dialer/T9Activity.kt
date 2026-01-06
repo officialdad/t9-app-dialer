@@ -1429,8 +1429,12 @@ class T9Activity : Activity() {
 
         title.text = app.name
 
+        // Get theme-aware icon color
+        val iconColor = if (isLightTheme) getColor(R.color.light_dialog_text) else getColor(R.color.dark_dialog_text)
+
         // App Info option
-        addDialogItem(itemsContainer, "App Info") {
+        val infoIcon = getDrawable(R.drawable.ic_info)?.apply { setTint(iconColor) }
+        addDialogItem(itemsContainer, "App Info", icon = infoIcon) {
             val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
             intent.data = Uri.parse("package:${app.packageName}")
             startActivity(intent)
@@ -1438,7 +1442,8 @@ class T9Activity : Activity() {
         }
 
         // Uninstall option
-        addDialogItem(itemsContainer, "Uninstall") {
+        val deleteIcon = getDrawable(R.drawable.ic_delete)?.apply { setTint(iconColor) }
+        addDialogItem(itemsContainer, "Uninstall", icon = deleteIcon) {
             val packageUri = Uri.parse("package:${app.packageName}")
             try {
                 val intent = Intent(Intent.ACTION_DELETE, packageUri).apply {
@@ -1454,7 +1459,8 @@ class T9Activity : Activity() {
         }
 
         // Open in Play Store option
-        addDialogItem(itemsContainer, "Open in Play Store") {
+        val playStoreIcon = getDrawable(R.drawable.ic_play_store)?.apply { setTint(iconColor) }
+        addDialogItem(itemsContainer, "Open in Play Store", icon = playStoreIcon) {
             try {
                 val intent = Intent(Intent.ACTION_VIEW, Uri.parse("market://details?id=${app.packageName}"))
                 startActivity(intent)

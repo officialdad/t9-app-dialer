@@ -29,7 +29,7 @@
     <color name="move_mode_highlight">#FFA726</color>
 
     <!-- Dark Theme Dialog Colors -->
-    <color name="dark_dialog_background">#1A1A1A</color>
+    <color name="dark_dialog_background">#000000</color>
     <color name="dark_dialog_title">#FFFFFF</color>
     <color name="dark_dialog_text">#E0E0E0</color>
     <color name="dark_dialog_button">#BB86FC</color>
