@@ -1322,7 +1322,7 @@ class T9Activity : Activity() {
     }
 
     private fun showAppContextMenu(app: AppInfo) {
-        val options = arrayOf("App Info", "Open in Play Store")
+        val options = arrayOf("App Info", "Uninstall", "Open in Play Store")
 
         AlertDialog.Builder(this)
             .setTitle(app.name)
@@ -1335,6 +1335,12 @@ class T9Activity : Activity() {
                         startActivity(intent)
                     }
                     1 -> {
+                        // Uninstall - Launch uninstall dialog
+                        val intent = Intent(Intent.ACTION_DELETE)
+                        intent.data = Uri.parse("package:${app.packageName}")
+                        startActivity(intent)
+                    }
+                    2 -> {
                         // Open in Play Store
                         try {
                             // Try to open in Play Store app
