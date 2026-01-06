@@ -2,6 +2,8 @@ package com.t9dialer
 
 import android.app.Activity
 import android.app.AlertDialog
+import android.app.Dialog
+import android.view.LayoutInflater
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.ComponentName
@@ -1275,42 +1277,122 @@ class T9Activity : Activity() {
         return iconPacks
     }
 
-    private fun getDialogTheme(): Int {
-        return if (isLightTheme) {
-            R.style.Theme_App_AlertDialog_Light
+    private fun createCustomDialog(): Pair<Dialog, android.view.View> {
+        val dialog = Dialog(this, android.R.style.Theme_Translucent_NoTitleBar)
+        val view = LayoutInflater.from(this).inflate(R.layout.dialog_custom, null)
+        dialog.setContentView(view)
+        dialog.setCancelable(true)
+
+        // Apply theme colors
+        val card = view.findViewById<com.google.android.material.card.MaterialCardView>(R.id.dialogCard)
+        val container = view.findViewById<LinearLayout>(R.id.dialogContainer)
+        val title = view.findViewById<TextView>(R.id.dialogTitle)
+        val cancelButton = view.findViewById<TextView>(R.id.dialogCancelButton)
+
+        val bgColor = if (isLightTheme) getColor(R.color.light_dialog_background) else getColor(R.color.dark_dialog_background)
+        val textColor = if (isLightTheme) getColor(R.color.light_dialog_text) else getColor(R.color.dark_dialog_text)
+        val titleColor = if (isLightTheme) getColor(R.color.light_dialog_title) else getColor(R.color.dark_dialog_title)
+        val borderColor = if (isLightTheme) getColor(R.color.light_border) else getColor(R.color.dark_border)
+        val buttonColor = if (isLightTheme) getColor(R.color.light_dialog_button) else getColor(R.color.dark_dialog_button)
+
+        card.setCardBackgroundColor(bgColor)
+        card.strokeColor = borderColor
+        container.setBackgroundColor(bgColor)
+        title.setTextColor(titleColor)
+        cancelButton.setTextColor(buttonColor)
+
+        // Dismiss on background tap
+        view.setOnClickListener { dialog.dismiss() }
+
+        // Cancel button
+        cancelButton.setOnClickListener { dialog.dismiss() }
+
+        // Apply ripple to cancel button
+        val rippleColor = if (isLightTheme) getColor(R.color.light_ripple) else getColor(R.color.dark_ripple)
+        cancelButton.foreground = createRippleDrawable(rippleColor)
+
+        return Pair(dialog, view)
+    }
+
+    private fun addDialogItem(
+        container: LinearLayout,
+        text: String,
+        icon: Drawable? = null,
+        isSelected: Boolean = false,
+        onClick: () -> Unit
+    ) {
+        val itemView = LayoutInflater.from(this).inflate(R.layout.dialog_item, container, false)
+
+        val itemIcon = itemView.findViewById<ImageView>(R.id.itemIcon)
+        val itemText = itemView.findViewById<TextView>(R.id.itemText)
+        val itemCheck = itemView.findViewById<ImageView>(R.id.itemCheck)
+
+        // Apply theme colors
+        val textColor = if (isLightTheme) getColor(R.color.light_dialog_text) else getColor(R.color.dark_dialog_text)
+        val checkColor = if (isLightTheme) getColor(R.color.light_dialog_button) else getColor(R.color.dark_dialog_button)
+
+        itemText.text = text
+        itemText.setTextColor(textColor)
+
+        if (icon != null) {
+            itemIcon.setImageDrawable(icon)
+            itemIcon.visibility = android.view.View.VISIBLE
         } else {
-            R.style.Theme_App_AlertDialog_Dark
+            itemIcon.visibility = android.view.View.GONE
         }
+
+        if (isSelected) {
+            val checkDrawable = getDrawable(R.drawable.ic_check)
+            checkDrawable?.setTint(checkColor)
+            itemCheck.setImageDrawable(checkDrawable)
+            itemCheck.visibility = android.view.View.VISIBLE
+        } else {
+            itemCheck.visibility = android.view.View.GONE
+        }
+
+        // Apply ripple effect
+        val rippleColor = if (isLightTheme) getColor(R.color.light_ripple) else getColor(R.color.dark_ripple)
+        itemView.foreground = createRippleDrawable(rippleColor)
+
+        itemView.setOnClickListener { onClick() }
+        container.addView(itemView)
     }
 
     private fun showIconPackSelector() {
         val iconPacks = getInstalledIconPacks()
-        val packNames = iconPacks.map { it.name }.toTypedArray()
 
         // Find currently selected icon pack index
         val currentSelection = iconPacks.indexOfFirst {
             it.packageName == (iconPackPackageName ?: "")
         }
 
-        AlertDialog.Builder(this, getDialogTheme())
-            .setTitle("Select Icon Pack")
-            .setSingleChoiceItems(packNames, currentSelection) { dialog, which ->
-                val selectedPack = iconPacks[which]
+        val (dialog, view) = createCustomDialog()
+        val title = view.findViewById<TextView>(R.id.dialogTitle)
+        val itemsContainer = view.findViewById<LinearLayout>(R.id.dialogItemsContainer)
 
+        title.text = "Select Icon Pack"
+
+        iconPacks.forEachIndexed { index, pack ->
+            addDialogItem(
+                container = itemsContainer,
+                text = pack.name,
+                icon = pack.icon,
+                isSelected = index == currentSelection
+            ) {
                 // Save preference
                 val prefs = getSharedPreferences("T9Dialer", Context.MODE_PRIVATE)
-                if (selectedPack.packageName.isEmpty()) {
+                if (pack.packageName.isEmpty()) {
                     // Default selected
                     prefs.edit().remove("icon_pack").apply()
                     iconPackPackageName = null
                     iconPackResources = null
                     iconPackMappings.clear()
                 } else {
-                    prefs.edit().putString("icon_pack", selectedPack.packageName).apply()
-                    iconPackPackageName = selectedPack.packageName
+                    prefs.edit().putString("icon_pack", pack.packageName).apply()
+                    iconPackPackageName = pack.packageName
                     try {
-                        iconPackResources = packageManager.getResourcesForApplication(selectedPack.packageName)
-                        loadIconPackMappings(selectedPack.packageName)
+                        iconPackResources = packageManager.getResourcesForApplication(pack.packageName)
+                        loadIconPackMappings(pack.packageName)
                     } catch (e: PackageManager.NameNotFoundException) {
                         iconPackResources = null
                         iconPackMappings.clear()
@@ -1320,77 +1402,70 @@ class T9Activity : Activity() {
                 // Clear icon cache and reload
                 iconCache.clear()
                 for (app in allApps) {
-                    app.icon = null  // Clear loaded icons
+                    app.icon = null
                 }
                 updateAppsList()
 
                 // Show feedback message
-                val message = if (selectedPack.packageName.isEmpty()) {
+                val message = if (pack.packageName.isEmpty()) {
                     "Using default icons"
                 } else {
                     val iconCount = iconPackMappings.size
-                    if (iconCount > 0) {
-                        "Icon pack applied"
-                    } else {
-                        "No icons found in pack"
-                    }
+                    if (iconCount > 0) "Icon pack applied" else "No icons found in pack"
                 }
-
-                // Show feedback toast
                 Toast.makeText(this, message, Toast.LENGTH_SHORT).show()
 
                 dialog.dismiss()
             }
-            .setNegativeButton("Cancel", null)
-            .show()
+        }
+
+        dialog.show()
     }
 
     private fun showAppContextMenu(app: AppInfo) {
-        val options = arrayOf("App Info", "Uninstall", "Open in Play Store")
+        val (dialog, view) = createCustomDialog()
+        val title = view.findViewById<TextView>(R.id.dialogTitle)
+        val itemsContainer = view.findViewById<LinearLayout>(R.id.dialogItemsContainer)
 
-        AlertDialog.Builder(this, getDialogTheme())
-            .setTitle(app.name)
-            .setItems(options) { dialog, which ->
-                when (which) {
-                    0 -> {
-                        // App Info - Open system settings
-                        val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
-                        intent.data = Uri.parse("package:${app.packageName}")
-                        startActivity(intent)
-                    }
-                    1 -> {
-                        // Uninstall - Launch system uninstall dialog
-                        val packageUri = Uri.parse("package:${app.packageName}")
+        title.text = app.name
 
-                        try {
-                            // Use ACTION_DELETE with application context
-                            val intent = Intent(Intent.ACTION_DELETE, packageUri).apply {
-                                flags = Intent.FLAG_ACTIVITY_NEW_TASK
-                            }
-                            pendingUninstallRefresh = true
-                            applicationContext.startActivity(intent)
-                        } catch (e: Exception) {
-                            pendingUninstallRefresh = false
-                            Toast.makeText(this, "Uninstall failed: ${e.message}", Toast.LENGTH_LONG).show()
-                        }
-                    }
-                    2 -> {
-                        // Open in Play Store
-                        try {
-                            // Try to open in Play Store app
-                            val intent = Intent(Intent.ACTION_VIEW, Uri.parse("market://details?id=${app.packageName}"))
-                            startActivity(intent)
-                        } catch (e: ActivityNotFoundException) {
-                            // Fallback to Play Store web page if app not installed
-                            val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://play.google.com/store/apps/details?id=${app.packageName}"))
-                            startActivity(intent)
-                        }
-                    }
+        // App Info option
+        addDialogItem(itemsContainer, "App Info") {
+            val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
+            intent.data = Uri.parse("package:${app.packageName}")
+            startActivity(intent)
+            dialog.dismiss()
+        }
+
+        // Uninstall option
+        addDialogItem(itemsContainer, "Uninstall") {
+            val packageUri = Uri.parse("package:${app.packageName}")
+            try {
+                val intent = Intent(Intent.ACTION_DELETE, packageUri).apply {
+                    flags = Intent.FLAG_ACTIVITY_NEW_TASK
                 }
-                dialog.dismiss()
+                pendingUninstallRefresh = true
+                applicationContext.startActivity(intent)
+            } catch (e: Exception) {
+                pendingUninstallRefresh = false
+                Toast.makeText(this, "Uninstall failed: ${e.message}", Toast.LENGTH_LONG).show()
             }
-            .setNegativeButton("Cancel", null)
-            .show()
+            dialog.dismiss()
+        }
+
+        // Open in Play Store option
+        addDialogItem(itemsContainer, "Open in Play Store") {
+            try {
+                val intent = Intent(Intent.ACTION_VIEW, Uri.parse("market://details?id=${app.packageName}"))
+                startActivity(intent)
+            } catch (e: ActivityNotFoundException) {
+                val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://play.google.com/store/apps/details?id=${app.packageName}"))
+                startActivity(intent)
+            }
+            dialog.dismiss()
+        }
+
+        dialog.show()
     }
 
     private fun getIconFromPack(packageName: String): Drawable? {

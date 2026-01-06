@@ -21,28 +21,4 @@
         <item name="cornerFamily">rounded</item>
         <item name="cornerSize">16dp</item>
     </style>
-
-    <!-- Dark Theme AlertDialog Style -->
-    <style name="Theme.App.AlertDialog.Dark" parent="Theme.Material3.Dark.Dialog.Alert">
-        <item name="android:background">@color/dark_dialog_background</item>
-        <item name="android:textColor">@color/dark_dialog_text</item>
-        <item name="android:textColorPrimary">@color/dark_dialog_text</item>
-        <item name="android:textColorSecondary">@color/dark_dialog_text</item>
-        <item name="colorPrimary">@color/dark_dialog_button</item>
-        <item name="colorAccent">@color/dark_dialog_button</item>
-        <item name="android:windowBackground">@color/dark_dialog_background</item>
-        <item name="dialogCornerRadius">16dp</item>
-    </style>
-
-    <!-- Light Theme AlertDialog Style -->
-    <style name="Theme.App.AlertDialog.Light" parent="Theme.Material3.Light.Dialog.Alert">
-        <item name="android:background">@color/light_dialog_background</item>
-        <item name="android:textColor">@color/light_dialog_text</item>
-        <item name="android:textColorPrimary">@color/light_dialog_text</item>
-        <item name="android:textColorSecondary">@color/light_dialog_text</item>
-        <item name="colorPrimary">@color/light_dialog_button</item>
-        <item name="colorAccent">@color/light_dialog_button</item>
-        <item name="android:windowBackground">@color/light_dialog_background</item>
-        <item name="dialogCornerRadius">16dp</item>
-    </style>
 </resources>
