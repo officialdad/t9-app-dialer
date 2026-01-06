@@ -831,6 +831,19 @@ class T9Activity : Activity() {
             }
             true
         }
+
+        // Button 9: Add info icon for About dialog
+        val btn9 = findViewById<MaterialButton>(R.id.btn9)
+        val infoIcon = getDrawable(R.drawable.ic_info)
+        infoIcon?.setBounds(0, 0, dpToPx(16), dpToPx(16))
+        btn9.setCompoundDrawables(null, null, infoIcon, null)
+        btn9.compoundDrawablePadding = dpToPx(4)
+
+        // Long-press button 9 to show About dialog
+        btn9.setOnLongClickListener {
+            showAboutDialog()
+            true
+        }
     }
 
     private fun updateButton3Icon() {
@@ -1421,6 +1434,55 @@ class T9Activity : Activity() {
 
                 dialog.dismiss()
             }
+        }
+
+        dialog.show()
+    }
+
+    private fun showAboutDialog() {
+        val (dialog, view) = createCustomDialog()
+        val title = view.findViewById<TextView>(R.id.dialogTitle)
+        val itemsContainer = view.findViewById<LinearLayout>(R.id.dialogItemsContainer)
+
+        title.text = "T9 App Dialer"
+
+        // Get theme-aware icon color
+        val iconColor = if (isLightTheme) getColor(R.color.light_dialog_text) else getColor(R.color.dark_dialog_text)
+
+        // App icon centered
+        val appIconLayout = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER
+            setPadding(dpToPx(20), dpToPx(8), dpToPx(20), dpToPx(8))
+        }
+
+        val appIcon = ImageView(this).apply {
+            setImageDrawable(getDrawable(R.drawable.ic_launcher))
+            layoutParams = LinearLayout.LayoutParams(dpToPx(72), dpToPx(72))
+        }
+        appIconLayout.addView(appIcon)
+        itemsContainer.addView(appIconLayout)
+
+        // Version as dialog item - opens app info
+        val versionName = packageManager.getPackageInfo(packageName, 0).versionName
+        val settingsIcon = getDrawable(R.drawable.ic_settings)?.apply { setTint(iconColor) }
+        addDialogItem(itemsContainer, "Version $versionName", icon = settingsIcon) {
+            val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
+            intent.data = Uri.parse("package:$packageName")
+            startActivity(intent)
+            dialog.dismiss()
+        }
+
+        // GitHub link
+        val githubIcon = getDrawable(R.drawable.ic_github)?.apply { setTint(iconColor) }
+        addDialogItem(itemsContainer, "View on GitHub", icon = githubIcon) {
+            try {
+                val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/officialdad/t9-app-dialer"))
+                startActivity(intent)
+            } catch (e: Exception) {
+                Toast.makeText(this, "Could not open link", Toast.LENGTH_SHORT).show()
+            }
+            dialog.dismiss()
         }
 
         dialog.show()
