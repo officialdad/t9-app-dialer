@@ -1336,9 +1336,12 @@ class T9Activity : Activity() {
                     }
                     1 -> {
                         // Uninstall - Launch uninstall dialog
-                        val intent = Intent(Intent.ACTION_DELETE)
-                        intent.data = Uri.parse("package:${app.packageName}")
+                        val intent = Intent(Intent.ACTION_DELETE).apply {
+                            data = Uri.parse("package:${app.packageName}")
+                            flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                        }
                         startActivity(intent)
+                        finish()
                     }
                     2 -> {
                         // Open in Play Store
