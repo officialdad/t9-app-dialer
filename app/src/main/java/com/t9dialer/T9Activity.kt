@@ -1336,13 +1336,16 @@ class T9Activity : Activity() {
                     }
                     1 -> {
                         // Uninstall - Launch system uninstall dialog
+                        val packageUri = Uri.parse("package:${app.packageName}")
+
                         try {
-                            val intent = Intent(Intent.ACTION_UNINSTALL_PACKAGE).apply {
-                                data = Uri.parse("package:${app.packageName}")
+                            // Use ACTION_DELETE with application context
+                            val intent = Intent(Intent.ACTION_DELETE, packageUri).apply {
+                                flags = Intent.FLAG_ACTIVITY_NEW_TASK
                             }
-                            startActivity(intent)
-                        } catch (e: ActivityNotFoundException) {
-                            Toast.makeText(this, "Unable to uninstall", Toast.LENGTH_SHORT).show()
+                            applicationContext.startActivity(intent)
+                        } catch (e: Exception) {
+                            Toast.makeText(this, "Uninstall failed: ${e.message}", Toast.LENGTH_LONG).show()
                         }
                     }
                     2 -> {

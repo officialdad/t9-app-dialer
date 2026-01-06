@@ -10,6 +10,8 @@
 
     <!-- Permission to query installed apps -->
     <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES" />
+    <!-- Permission to request app uninstall -->
+    <uses-permission android:name="android.permission.REQUEST_DELETE_PACKAGES" />
 
     <application
         android:allowBackup="true"
