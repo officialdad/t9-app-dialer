@@ -9,6 +9,10 @@
 [![Latest Release](https://img.shields.io/github/v/release/officialdad/t9-app-dialer)](https://github.com/officialdad/t9-app-dialer/releases/latest)
 [![License](https://img.shields.io/github/license/officialdad/t9-app-dialer)](LICENSE)
 
+---
+
+https://github.com/user-attachments/assets/17b8ac2c-f953-4e46-ba21-3fcb8276b101
+
 </div>
 
 ## Installation
