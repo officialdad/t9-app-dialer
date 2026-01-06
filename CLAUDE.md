@@ -36,6 +36,8 @@ settings.gradle.kts            # Project settings
 - **Clean**: `gradle clean`
 - **Install**: `termux-open app/build/outputs/apk/debug/app-debug.apk`
 
+**Important**: All development is done in Termux. Always run `termux-open` as the final step after a successful build so the user can test the app.
+
 ### Architecture Notes
 - Single-activity app with dialog-style window
 - Coroutines (`MainScope`) for async app loading and icon caching
