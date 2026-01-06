@@ -11,8 +11,8 @@ android {
         applicationId = "com.t9dialer"
         minSdk = 23
         targetSdk = 34
-        versionCode = 6
-        versionName = "0.0.6"
+        versionCode = 100
+        versionName = "1.0.0"
     }
 
     buildTypes {
