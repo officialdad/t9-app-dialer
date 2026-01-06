@@ -60,6 +60,9 @@ class T9Activity : Activity() {
     private val mainScope = CoroutineScope(Dispatchers.Main + SupervisorJob())
     private var cachedIconPacks: List<IconPackInfo>? = null
 
+    // Uninstall state - refresh app list when returning
+    private var pendingUninstallRefresh = false
+
     // Move mode state for repositioning the dialog
     private var isMoveModeActive = false
     private var pendingMoveMode = false  // Wait for finger release before activating
@@ -214,6 +217,19 @@ class T9Activity : Activity() {
     override fun onDestroy() {
         super.onDestroy()
         mainScope.cancel()  // Clean up coroutines
+    }
+
+    override fun onResume() {
+        super.onResume()
+        // Refresh app list after returning from uninstall
+        if (pendingUninstallRefresh) {
+            pendingUninstallRefresh = false
+            currentQuery = ""
+            appsLoaded = false
+            allApps = emptyList()
+            iconCache.clear()
+            updateAppsList()
+        }
     }
 
     // Convert string to T9 digit sequence for fast matching
@@ -1343,8 +1359,10 @@ class T9Activity : Activity() {
                             val intent = Intent(Intent.ACTION_DELETE, packageUri).apply {
                                 flags = Intent.FLAG_ACTIVITY_NEW_TASK
                             }
+                            pendingUninstallRefresh = true
                             applicationContext.startActivity(intent)
                         } catch (e: Exception) {
+                            pendingUninstallRefresh = false
                             Toast.makeText(this, "Uninstall failed: ${e.message}", Toast.LENGTH_LONG).show()
                         }
                     }
