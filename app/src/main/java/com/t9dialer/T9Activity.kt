@@ -1275,6 +1275,14 @@ class T9Activity : Activity() {
         return iconPacks
     }
 
+    private fun getDialogTheme(): Int {
+        return if (isLightTheme) {
+            R.style.Theme_App_AlertDialog_Light
+        } else {
+            R.style.Theme_App_AlertDialog_Dark
+        }
+    }
+
     private fun showIconPackSelector() {
         val iconPacks = getInstalledIconPacks()
         val packNames = iconPacks.map { it.name }.toTypedArray()
@@ -1284,7 +1292,7 @@ class T9Activity : Activity() {
             it.packageName == (iconPackPackageName ?: "")
         }
 
-        AlertDialog.Builder(this)
+        AlertDialog.Builder(this, getDialogTheme())
             .setTitle("Select Icon Pack")
             .setSingleChoiceItems(packNames, currentSelection) { dialog, which ->
                 val selectedPack = iconPacks[which]
@@ -1340,7 +1348,7 @@ class T9Activity : Activity() {
     private fun showAppContextMenu(app: AppInfo) {
         val options = arrayOf("App Info", "Uninstall", "Open in Play Store")
 
-        AlertDialog.Builder(this)
+        AlertDialog.Builder(this, getDialogTheme())
             .setTitle(app.name)
             .setItems(options) { dialog, which ->
                 when (which) {

@@ -28,6 +28,22 @@
     <color name="key_clear">#FF5252</color>
     <color name="move_mode_highlight">#FFA726</color>
 
+    <!-- Dark Theme Dialog Colors -->
+    <color name="dark_dialog_background">#1A1A1A</color>
+    <color name="dark_dialog_title">#FFFFFF</color>
+    <color name="dark_dialog_text">#E0E0E0</color>
+    <color name="dark_dialog_button">#BB86FC</color>
+    <color name="dark_dialog_divider">#333333</color>
+    <color name="dark_dialog_item_selected">#2A2A2A</color>
+
+    <!-- Light Theme Dialog Colors -->
+    <color name="light_dialog_background">#FFFFFF</color>
+    <color name="light_dialog_title">#000000</color>
+    <color name="light_dialog_text">#333333</color>
+    <color name="light_dialog_button">#6200EE</color>
+    <color name="light_dialog_divider">#E0E0E0</color>
+    <color name="light_dialog_item_selected">#F0F0F0</color>
+
     <!-- Dynamic Colors (will be set programmatically) -->
     <color name="background">@color/dark_background</color>
     <color name="key_number">@color/dark_key_number</color>
