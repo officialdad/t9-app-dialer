@@ -775,11 +775,11 @@ class T9Activity : Activity() {
         setKeyText(findViewById(R.id.btn8), "8", "TUV")
         setKeyText(findViewById(R.id.btn9), "9", "WXYZ")
 
-        // Button 1: Add settings icon
+        // Button 1: Add icon pack (palette) icon
         val clearButton = findViewById<MaterialButton>(R.id.btn1)
-        val settingsIcon = getDrawable(R.drawable.ic_settings)
-        settingsIcon?.setBounds(0, 0, dpToPx(16), dpToPx(16))
-        clearButton.setCompoundDrawables(null, null, settingsIcon, null)
+        val paletteIcon = getDrawable(R.drawable.ic_palette)
+        paletteIcon?.setBounds(0, 0, dpToPx(16), dpToPx(16))
+        clearButton.setCompoundDrawables(null, null, paletteIcon, null)
         clearButton.compoundDrawablePadding = dpToPx(4)
 
         // Button 2: Add theme toggle icon (will be set in updateThemeIcon)
@@ -965,13 +965,17 @@ class T9Activity : Activity() {
         appsContainer.removeAllViews()
 
         // Add views with icons ready
+        // Use fixed width per app (1/3 of container) to prevent ripple stretching
+        val appWidth = dpToPx(102)  // ~1/3 of 320dp container minus padding
         for (matchInfo in sortedApps) {
             val appView = getOrCreateAppView(matchInfo)
-            // Set layout params with weight to align with keys 1-2-3
-            val params = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.MATCH_PARENT, 1f)
+            val params = LinearLayout.LayoutParams(appWidth, LinearLayout.LayoutParams.MATCH_PARENT)
             appView.layoutParams = params
             appsContainer.addView(appView)
         }
+
+        // Center apps when fewer than 3 results
+        appsContainer.gravity = Gravity.CENTER
 
         // Show message if no matches (but only if apps have finished loading)
         if (sortedApps.isEmpty() && currentQuery.isNotEmpty() && appsLoaded) {

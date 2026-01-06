@@ -36,7 +36,8 @@
                 android:textSize="18sp"
                 android:textStyle="bold"
                 android:maxLines="2"
-                android:ellipsize="end" />
+                android:ellipsize="end"
+                android:gravity="center" />
 
             <!-- Scrollable Items Container -->
             <ScrollView
