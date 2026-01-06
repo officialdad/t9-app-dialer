@@ -78,6 +78,17 @@ class T9Activity : Activity() {
     private var savedStrokeColor = 0
     private var savedStrokeWidth = 0
 
+    // Container size state
+    private var containerWidth = DEFAULT_CONTAINER_WIDTH
+    private var hasCustomSize = false
+
+    companion object {
+        private const val DEFAULT_CONTAINER_WIDTH = 320
+        private const val MIN_CONTAINER_WIDTH = 240
+        private const val MAX_CONTAINER_WIDTH = 400
+        private const val CONTAINER_WIDTH_STEP = 20
+    }
+
     // Helper to get orientation suffix for preference keys
     private fun getOrientationSuffix(): String {
         return if (resources.configuration.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE) {
@@ -112,6 +123,9 @@ class T9Activity : Activity() {
         // Load position preference first
         loadPositionPreference()
 
+        // Load size preference
+        loadSizePreference()
+
         // Apply custom position or default gravity
         if (hasCustomPosition) {
             applyDialogPosition()
@@ -123,6 +137,9 @@ class T9Activity : Activity() {
         }
 
         setContentView(R.layout.activity_t9)
+
+        // Apply container size after view is created
+        applyContainerSize()
 
         appsContainer = findViewById(R.id.appsContainer)
         mainContainer = findViewById(R.id.mainContainer)
@@ -324,6 +341,72 @@ class T9Activity : Activity() {
         }
     }
 
+    private fun loadSizePreference() {
+        val prefs = getSharedPreferences("T9Dialer", Context.MODE_PRIVATE)
+        val suffix = getOrientationSuffix()
+
+        hasCustomSize = prefs.getBoolean("has_custom_size$suffix", false)
+        if (hasCustomSize) {
+            containerWidth = prefs.getInt("container_width$suffix", DEFAULT_CONTAINER_WIDTH)
+            // Validate bounds
+            containerWidth = containerWidth.coerceIn(MIN_CONTAINER_WIDTH, MAX_CONTAINER_WIDTH)
+        } else {
+            containerWidth = DEFAULT_CONTAINER_WIDTH
+        }
+    }
+
+    private fun saveSizePreference() {
+        val prefs = getSharedPreferences("T9Dialer", Context.MODE_PRIVATE)
+        val suffix = getOrientationSuffix()
+
+        prefs.edit()
+            .putBoolean("has_custom_size$suffix", true)
+            .putInt("container_width$suffix", containerWidth)
+            .apply()
+        hasCustomSize = true
+    }
+
+    private fun applyContainerSize() {
+        val mainCard = findViewById<com.google.android.material.card.MaterialCardView>(R.id.mainCard)
+        val params = mainCard.layoutParams
+        params.width = dpToPx(containerWidth)
+        mainCard.layoutParams = params
+    }
+
+    private fun resizeContainer(increase: Boolean) {
+        val newWidth = if (increase) {
+            containerWidth + CONTAINER_WIDTH_STEP
+        } else {
+            containerWidth - CONTAINER_WIDTH_STEP
+        }
+
+        // Check bounds
+        if (newWidth < MIN_CONTAINER_WIDTH || newWidth > MAX_CONTAINER_WIDTH) {
+            val message = if (increase) "Maximum size reached" else "Minimum size reached"
+            Toast.makeText(this, message, Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        containerWidth = newWidth
+        applyContainerSize()
+        saveSizePreference()
+    }
+
+    private fun resetContainerSize() {
+        val prefs = getSharedPreferences("T9Dialer", Context.MODE_PRIVATE)
+        val suffix = getOrientationSuffix()
+
+        prefs.edit()
+            .remove("has_custom_size$suffix")
+            .remove("container_width$suffix")
+            .apply()
+
+        hasCustomSize = false
+        containerWidth = DEFAULT_CONTAINER_WIDTH
+        applyContainerSize()
+        Toast.makeText(this, "Size reset to default", Toast.LENGTH_SHORT).show()
+    }
+
     private fun enterPendingMoveMode() {
         pendingMoveMode = true
 
@@ -472,6 +555,10 @@ class T9Activity : Activity() {
             val isLandscape = newConfig.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
             window?.setGravity(if (isLandscape) Gravity.BOTTOM or Gravity.END else Gravity.BOTTOM)
         }
+
+        // Load and apply size preference for new orientation
+        loadSizePreference()
+        applyContainerSize()
     }
 
     private fun applyTheme() {
@@ -786,15 +873,47 @@ class T9Activity : Activity() {
         val btn2 = findViewById<MaterialButton>(R.id.btn2)
         btn2.compoundDrawablePadding = dpToPx(4)
 
+        // Button 4: Add shrink icon for resize
+        val btn4 = findViewById<MaterialButton>(R.id.btn4)
+        val shrinkIcon = getDrawable(R.drawable.ic_shrink)
+        shrinkIcon?.setBounds(0, 0, dpToPx(16), dpToPx(16))
+        btn4.setCompoundDrawables(null, null, shrinkIcon, null)
+        btn4.compoundDrawablePadding = dpToPx(4)
+
+        // Button 6: Add expand icon for resize
+        val btn6 = findViewById<MaterialButton>(R.id.btn6)
+        val expandIcon = getDrawable(R.drawable.ic_expand)
+        expandIcon?.setBounds(0, 0, dpToPx(16), dpToPx(16))
+        btn6.setCompoundDrawables(null, null, expandIcon, null)
+        btn6.compoundDrawablePadding = dpToPx(4)
+
         // Number buttons 2-9
         btn2.setOnClickListener { addDigit('2') }
         findViewById<MaterialButton>(R.id.btn3).setOnClickListener { addDigit('3') }
-        findViewById<MaterialButton>(R.id.btn4).setOnClickListener { addDigit('4') }
+        btn4.setOnClickListener { addDigit('4') }
         findViewById<MaterialButton>(R.id.btn5).setOnClickListener { addDigit('5') }
-        findViewById<MaterialButton>(R.id.btn6).setOnClickListener { addDigit('6') }
+        btn6.setOnClickListener { addDigit('6') }
         findViewById<MaterialButton>(R.id.btn7).setOnClickListener { addDigit('7') }
         findViewById<MaterialButton>(R.id.btn8).setOnClickListener { addDigit('8') }
         findViewById<MaterialButton>(R.id.btn9).setOnClickListener { addDigit('9') }
+
+        // Long-press button 4 to shrink container
+        btn4.setOnLongClickListener {
+            resizeContainer(false)  // decrease
+            true
+        }
+
+        // Long-press button 5 to reset container size
+        findViewById<MaterialButton>(R.id.btn5).setOnLongClickListener {
+            resetContainerSize()
+            true
+        }
+
+        // Long-press button 6 to expand container
+        btn6.setOnLongClickListener {
+            resizeContainer(true)  // increase
+            true
+        }
 
         // Button 1: Clear/Reset
         clearButton.setOnClickListener {
