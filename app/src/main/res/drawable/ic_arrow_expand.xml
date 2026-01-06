@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="16dp"
+    android:height="16dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <!-- Arrow expand - diagonal arrows pointing outward from corners -->
+    <path
+        android:fillColor="#808080"
+        android:pathData="M21,11V3h-8l3.29,3.29-4.29,4.3 1.41,1.41 4.3-4.29L21,11zM3,13v8h8l-3.29-3.29 4.29-4.3-1.41-1.41-4.3,4.29L3,13z"/>
+</vector>

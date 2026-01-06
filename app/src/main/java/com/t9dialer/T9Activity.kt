@@ -87,6 +87,47 @@ class T9Activity : Activity() {
         private const val MIN_CONTAINER_WIDTH = 240
         private const val MAX_CONTAINER_WIDTH = 400
         private const val CONTAINER_WIDTH_STEP = 20
+        private const val DEFAULT_NUMBER_SIZE_SP = 20
+        private const val DEFAULT_ALPHABET_SIZE_SP = 14
+        private const val DEFAULT_APPS_CONTAINER_HEIGHT = 120
+        private const val DEFAULT_BUTTON_HEIGHT = 76
+        private const val DEFAULT_CONTAINER_PADDING = 6
+        private const val DEFAULT_APPS_MARGIN_TOP = 19
+        private const val DEFAULT_APPS_MARGIN_BOTTOM = 10
+        private const val DEFAULT_BUTTON_MARGIN = 2
+        private const val DEFAULT_APP_WIDTH = 102
+        private const val DEFAULT_APP_ICON_SIZE = 72
+        private const val DEFAULT_APP_LABEL_SIZE_SP = 12
+    }
+
+    // Get scale factor based on container width
+    private fun getScaleFactor(): Float {
+        return containerWidth.toFloat() / DEFAULT_CONTAINER_WIDTH.toFloat()
+    }
+
+    // Get scaled number font size in sp
+    private fun getScaledNumberSize(): Int {
+        return (DEFAULT_NUMBER_SIZE_SP * getScaleFactor()).toInt()
+    }
+
+    // Get scaled alphabet font size in sp
+    private fun getScaledAlphabetSize(): Int {
+        return (DEFAULT_ALPHABET_SIZE_SP * getScaleFactor()).toInt()
+    }
+
+    // Get scaled app icon size in dp
+    private fun getScaledAppIconSize(): Int {
+        return (DEFAULT_APP_ICON_SIZE * getScaleFactor()).toInt()
+    }
+
+    // Get scaled app label size in sp
+    private fun getScaledAppLabelSize(): Float {
+        return DEFAULT_APP_LABEL_SIZE_SP * getScaleFactor()
+    }
+
+    // Get scaled app width in dp
+    private fun getScaledAppWidth(): Int {
+        return (DEFAULT_APP_WIDTH * getScaleFactor()).toInt()
     }
 
     // Helper to get orientation suffix for preference keys
@@ -367,10 +408,47 @@ class T9Activity : Activity() {
     }
 
     private fun applyContainerSize() {
+        val scale = getScaleFactor()
+
+        // Scale main card width
         val mainCard = findViewById<com.google.android.material.card.MaterialCardView>(R.id.mainCard)
-        val params = mainCard.layoutParams
-        params.width = dpToPx(containerWidth)
-        mainCard.layoutParams = params
+        val cardParams = mainCard.layoutParams
+        cardParams.width = dpToPx(containerWidth)
+        mainCard.layoutParams = cardParams
+
+        // Scale main container padding
+        val mainContainerView = findViewById<LinearLayout>(R.id.mainContainer)
+        val scaledPadding = dpToPx((DEFAULT_CONTAINER_PADDING * scale).toInt())
+        mainContainerView.setPadding(scaledPadding, scaledPadding, scaledPadding, scaledPadding)
+
+        // Scale apps container height and margins
+        val appsContainerView = findViewById<LinearLayout>(R.id.appsContainer)
+        val appsParams = appsContainerView.layoutParams as LinearLayout.LayoutParams
+        appsParams.height = dpToPx((DEFAULT_APPS_CONTAINER_HEIGHT * scale).toInt())
+        appsParams.topMargin = dpToPx((DEFAULT_APPS_MARGIN_TOP * scale).toInt())
+        appsParams.bottomMargin = dpToPx((DEFAULT_APPS_MARGIN_BOTTOM * scale).toInt())
+        appsContainerView.layoutParams = appsParams
+
+        // Scale all button heights and margins
+        val scaledButtonHeight = dpToPx((DEFAULT_BUTTON_HEIGHT * scale).toInt())
+        val scaledButtonMargin = dpToPx((DEFAULT_BUTTON_MARGIN * scale).toInt())
+
+        for (btnId in listOf(R.id.btn1, R.id.btn2, R.id.btn3, R.id.btn4,
+                             R.id.btn5, R.id.btn6, R.id.btn7, R.id.btn8, R.id.btn9)) {
+            val button = findViewById<MaterialButton>(btnId)
+            val btnParams = button.layoutParams as LinearLayout.LayoutParams
+            btnParams.height = scaledButtonHeight
+            btnParams.setMargins(scaledButtonMargin, scaledButtonMargin, scaledButtonMargin, scaledButtonMargin)
+            button.layoutParams = btnParams
+        }
+
+        // Update button text sizes based on new container width
+        updateButtonColors()
+
+        // Refresh app list to scale icons
+        if (currentQuery.isNotEmpty()) {
+            updateAppsList()
+        }
     }
 
     private fun resizeContainer(increase: Boolean) {
@@ -699,7 +777,7 @@ class T9Activity : Activity() {
                 Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
             )
             spannable.setSpan(
-                AbsoluteSizeSpan(20, true),
+                AbsoluteSizeSpan(getScaledNumberSize(), true),
                 0, number.length,
                 Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
             )
@@ -711,7 +789,7 @@ class T9Activity : Activity() {
                 Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
             )
             spannable.setSpan(
-                AbsoluteSizeSpan(14, true),
+                AbsoluteSizeSpan(getScaledAlphabetSize(), true),
                 number.length + 1, text.length,
                 Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
             )
@@ -822,7 +900,7 @@ class T9Activity : Activity() {
         val text = "$number\n$letters"
         val spannable = SpannableString(text)
 
-        // Number: 20sp size, white (or red for button 1)
+        // Number: scaled size, white (or red for button 1)
         val numberColor = if (isRed) getColor(R.color.key_clear) else getColor(R.color.key_number)
         spannable.setSpan(
             ForegroundColorSpan(numberColor),
@@ -830,19 +908,19 @@ class T9Activity : Activity() {
             Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
         )
         spannable.setSpan(
-            AbsoluteSizeSpan(20, true), // 20sp
+            AbsoluteSizeSpan(getScaledNumberSize(), true),
             0, number.length,
             Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
         )
 
-        // Alphabet: 14sp size, gray
+        // Alphabet: scaled size, gray
         spannable.setSpan(
             ForegroundColorSpan(getColor(R.color.key_alphabet)),
             number.length + 1, text.length,
             Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
         )
         spannable.setSpan(
-            AbsoluteSizeSpan(14, true), // 14sp
+            AbsoluteSizeSpan(getScaledAlphabetSize(), true),
             number.length + 1, text.length,
             Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
         )
@@ -873,16 +951,23 @@ class T9Activity : Activity() {
         val btn2 = findViewById<MaterialButton>(R.id.btn2)
         btn2.compoundDrawablePadding = dpToPx(4)
 
-        // Button 4: Add shrink icon for resize
+        // Button 4: Add arrow collapse icon for resize (shrink)
         val btn4 = findViewById<MaterialButton>(R.id.btn4)
-        val shrinkIcon = getDrawable(R.drawable.ic_shrink)
-        shrinkIcon?.setBounds(0, 0, dpToPx(16), dpToPx(16))
-        btn4.setCompoundDrawables(null, null, shrinkIcon, null)
+        val collapseIcon = getDrawable(R.drawable.ic_arrow_collapse)
+        collapseIcon?.setBounds(0, 0, dpToPx(16), dpToPx(16))
+        btn4.setCompoundDrawables(null, null, collapseIcon, null)
         btn4.compoundDrawablePadding = dpToPx(4)
 
-        // Button 6: Add expand icon for resize
+        // Button 5: Add reset icon for size reset
+        val btn5 = findViewById<MaterialButton>(R.id.btn5)
+        val resetIcon = getDrawable(R.drawable.ic_reset)
+        resetIcon?.setBounds(0, 0, dpToPx(16), dpToPx(16))
+        btn5.setCompoundDrawables(null, null, resetIcon, null)
+        btn5.compoundDrawablePadding = dpToPx(4)
+
+        // Button 6: Add arrow expand icon for resize (grow)
         val btn6 = findViewById<MaterialButton>(R.id.btn6)
-        val expandIcon = getDrawable(R.drawable.ic_expand)
+        val expandIcon = getDrawable(R.drawable.ic_arrow_expand)
         expandIcon?.setBounds(0, 0, dpToPx(16), dpToPx(16))
         btn6.setCompoundDrawables(null, null, expandIcon, null)
         btn6.compoundDrawablePadding = dpToPx(4)
@@ -904,7 +989,7 @@ class T9Activity : Activity() {
         }
 
         // Long-press button 5 to reset container size
-        findViewById<MaterialButton>(R.id.btn5).setOnLongClickListener {
+        btn5.setOnLongClickListener {
             resetContainerSize()
             true
         }
@@ -1097,8 +1182,8 @@ class T9Activity : Activity() {
         appsContainer.removeAllViews()
 
         // Add views with icons ready
-        // Use fixed width per app (1/3 of container) to prevent ripple stretching
-        val appWidth = dpToPx(102)  // ~1/3 of 320dp container minus padding
+        // Use scaled width per app (1/3 of container) to prevent ripple stretching
+        val appWidth = dpToPx(getScaledAppWidth())
         for (matchInfo in sortedApps) {
             val appView = getOrCreateAppView(matchInfo)
             val params = LinearLayout.LayoutParams(appWidth, LinearLayout.LayoutParams.MATCH_PARENT)
@@ -1220,6 +1305,13 @@ class T9Activity : Activity() {
         val icon = view.findViewById<ImageView>(android.R.id.icon)
         val label = view.findViewById<TextView>(android.R.id.text1)
 
+        // Scale icon size
+        val scaledIconSize = dpToPx(getScaledAppIconSize())
+        val iconParams = icon.layoutParams
+        iconParams.width = scaledIconSize
+        iconParams.height = scaledIconSize
+        icon.layoutParams = iconParams
+
         // Set icon (should always be loaded at this point)
         icon.setImageDrawable(matchInfo.app.icon)
         icon.visibility = android.view.View.VISIBLE
@@ -1258,6 +1350,7 @@ class T9Activity : Activity() {
 
         label.text = spannable
         label.setTextColor(normalColor)
+        label.textSize = getScaledAppLabelSize()
 
         // Apply theme-aware ripple effect (same as keyboard buttons)
         val rippleColor = if (isLightTheme) {
