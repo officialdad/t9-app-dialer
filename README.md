@@ -9,6 +9,8 @@
 [![Latest Release](https://img.shields.io/github/v/release/officialdad/t9-app-dialer)](https://github.com/officialdad/t9-app-dialer/releases/latest)
 [![License](https://img.shields.io/github/license/officialdad/t9-app-dialer)](LICENSE)
 
+[<img src="https://github.com/machiav3lli/oandbackupx/blob/034b226cea5c1b30eb4f6a6f313e4dadcbb0ece4/badge_github.png" alt="Get it on GitHub" height="80">](https://github.com/officialdad/t9-app-dialer/releases/latest)
+
 </div>
 
 ---
@@ -18,33 +20,90 @@
 - **T9 Search** - Type app names using a classic phone keypad (2=ABC, 3=DEF, etc.)
   - Smart matching: beginning, word start, and substring matching
   - Real-time filtering as you type
+  - Match highlighting shows which part of the app name matched
 
 - **Theme Support** - Switch between light and dark themes
+  - Theme-aware dialogs and context menus
+  - Consistent styling across all UI elements
 
-- **Icon Pack Support** - Use your installed app icons
+- **Icon Pack Support** - Use your favorite icon packs
+  - Supports ADW, Nova, GO Launcher, and Icon Pack Studio formats
+  - Auto-detects installed icon packs
 
-- **Landscape Mode** - Optimized for one-handed use
+- **Movable Container** - Position the dialer anywhere on screen
+  - Independent positions for portrait and landscape orientations
+  - Visual move mode with drag-to-position
+  - Position persists across app restarts
 
-- **Performance** - Blazingly fast
+- **Resizable Container** - Adjust the dialer size to your preference
+  - Shrink, expand, or reset to default
+  - Separate sizes for portrait and landscape
+
+- **App Management** - Long-press apps for quick actions
+  - View app info in system settings
+  - Uninstall apps directly
+  - Open in Play Store
+
+- **Landscape Mode** - Optimized for one-handed use with separate layout
+
+- **About Dialog** - View version info and GitHub link
 
 ## Usage
 
 ### Basic Controls
 
-- Press **2-9** to search app names using T9 input (e.g., `43556` for "GMAIL")
-- Tap an **app icon** to launch it
-- Tap **outside the container** to close the dialer
+| Action | Result |
+|--------|--------|
+| Press **2-9** | Search apps using T9 input (e.g., `43556` for "GMAIL") |
+| Tap **app icon** | Launch the app |
+| Tap **outside container** | Close the dialer |
 
-### Shortcuts
+### Keyboard Shortcuts
 
-- Press **1** - Clear current search
-- Long-press **1** - Open icon pack selector
-- Long-press **2** - Toggle light/dark theme
-- Long-press **app** - Show context menu (App Info, Play Store)
+| Button | Press | Long-Press |
+|--------|-------|------------|
+| **1** | Clear search | Open icon pack selector |
+| **2** | Type ABC | Toggle light/dark theme |
+| **3** | Type DEF | Enter/save move mode |
+| **4** | Type GHI | Shrink container |
+| **5** | Type JKL | Reset container size |
+| **6** | Type MNO | Expand container |
+| **7** | Type PQRS | - |
+| **8** | Type TUV | - |
+| **9** | Type WXYZ | Show About dialog |
+
+### Move Mode
+
+1. **Long-press 3** to enter move mode (border highlights)
+2. **Drag** the container to your desired position
+3. **Long-press 3** again to save and exit move mode
+
+### App Context Menu
+
+**Long-press any app** in the search results to:
+- View **App Info** in system settings
+- **Uninstall** the app
+- Open in **Play Store**
+
+## Installation
+
+### Recommended: Obtainium
+
+[Obtainium](https://github.com/ImranR98/Obtainium) allows you to install and update apps directly from their GitHub releases.
+
+1. Install [Obtainium](https://github.com/ImranR98/Obtainium)
+2. Add app with URL: `https://github.com/officialdad/t9-app-dialer`
+3. Obtainium will notify you of updates automatically
+
+### Manual Download
+
+[<img src="https://github.com/machiav3lli/oandbackupx/blob/034b226cea5c1b30eb4f6a6f313e4dadcbb0ece4/badge_github.png" alt="Get it on GitHub" height="60">](https://github.com/officialdad/t9-app-dialer/releases/latest)
+
+Download the latest APK from [Releases](https://github.com/officialdad/t9-app-dialer/releases/latest) and install on your Android device.
 
 ## Requirements
 
-- **Android 5.0+** (API 21 or higher)
+- **Android 6.0+** (API 23 or higher)
 - **~15MB** storage
 - **Permissions:** None required
 
@@ -69,10 +128,6 @@ gradlew.bat assembleDebug
 ```
 
 **Output:** `app/build/outputs/apk/debug/app-debug.apk`
-
-## Installation
-
-Download the latest APK from [Releases](https://github.com/officialdad/t9-app-dialer/releases/latest) and install on your Android device.
 
 ## Contributing
 
