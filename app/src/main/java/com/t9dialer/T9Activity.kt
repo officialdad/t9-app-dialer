@@ -1339,10 +1339,8 @@ class T9Activity : Activity() {
                         try {
                             val intent = Intent(Intent.ACTION_UNINSTALL_PACKAGE).apply {
                                 data = Uri.parse("package:${app.packageName}")
-                                flags = Intent.FLAG_ACTIVITY_NEW_TASK
                             }
                             startActivity(intent)
-                            finish()
                         } catch (e: ActivityNotFoundException) {
                             Toast.makeText(this, "Unable to uninstall", Toast.LENGTH_SHORT).show()
                         }
