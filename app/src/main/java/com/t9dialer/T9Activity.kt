@@ -223,9 +223,10 @@ class T9Activity : Activity() {
 
         // Apps will be loaded on first key press for faster startup
 
-        // Enable profiling in debug builds — view with: logcat -s T9Perf:*
+        // Enable profiling in debug builds
+        // View with: cat /sdcard/Download/t9perf.log
         if (applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE != 0) {
-            PerfTrace.enable()
+            PerfTrace.init(this)
             PerfTrace.startMainThreadMonitor()
         }
     }
