@@ -105,6 +105,8 @@ class T9Activity : Activity() {
         private const val DEFAULT_APP_LABEL_SIZE_SP = 12
         private const val VIEW_POOL_MAX_SIZE = 10
         private const val SEARCH_DEBOUNCE_MS = 50L
+        private const val MAX_RECENT_APPS = 3
+        private const val PREF_RECENT_APPS = "recent_apps"
 
         // Pre-computed T9 character map — allocated once, used for all lookups
         private val T9_MAP = mapOf(
@@ -221,7 +223,8 @@ class T9Activity : Activity() {
             getInstalledIconPacks()
         }
 
-        // Apps will be loaded on first key press for faster startup
+        // Load apps eagerly so recent apps can be shown on startup
+        loadInstalledApps()
 
         // Enable profiling in debug builds
         // View with: cat /sdcard/Download/t9perf.log
@@ -1093,14 +1096,6 @@ class T9Activity : Activity() {
 
         currentQuery += digit
 
-        // Load apps on first key press — show loading state while waiting
-        if (!appsLoaded && !appsLoading) {
-            appsLoading = true
-            showLoadingState()
-            loadInstalledApps()
-            return  // updateAppsList() will be called when loading completes
-        }
-
         // Debounce rapid key presses
         searchDebounceJob?.cancel()
         searchDebounceJob = mainScope.launch {
@@ -1182,9 +1177,9 @@ class T9Activity : Activity() {
     }
 
     private fun updateAppsList() {
-        // Only show apps when there's a search query
+        // Show recent apps when no search query
         if (currentQuery.isEmpty()) {
-            recycleViews()
+            showRecentApps()
             return
         }
 
@@ -1479,9 +1474,83 @@ class T9Activity : Activity() {
     private fun launchApp(packageName: String) {
         val intent = packageManager.getLaunchIntentForPackage(packageName)
         if (intent != null) {
+            recordAppLaunch(packageName)
             startActivity(intent)
             finish()
         }
+    }
+
+    private fun recordAppLaunch(packageName: String) {
+        val prefs = getSharedPreferences("T9Dialer", Context.MODE_PRIVATE)
+        val recent = prefs.getString(PREF_RECENT_APPS, "")!!
+            .split(",")
+            .filter { it.isNotEmpty() && it != packageName }
+            .toMutableList()
+        recent.add(0, packageName)
+        prefs.edit()
+            .putString(PREF_RECENT_APPS, recent.take(MAX_RECENT_APPS).joinToString(","))
+            .apply()
+    }
+
+    private fun getRecentApps(): List<String> {
+        val prefs = getSharedPreferences("T9Dialer", Context.MODE_PRIVATE)
+        return prefs.getString(PREF_RECENT_APPS, "")!!
+            .split(",")
+            .filter { it.isNotEmpty() }
+    }
+
+    private fun showRecentApps() {
+        val recentPackages = getRecentApps()
+        if (recentPackages.isEmpty()) return
+
+        // Need apps loaded to resolve package names
+        if (!appsLoaded) return
+
+        recycleViews()
+        val appWidth = dpToPx(getScaledAppWidth())
+
+        for (pkg in recentPackages) {
+            val app = allApps.find { it.packageName == pkg } ?: continue
+
+            // Use cached icon if available
+            val cacheKey = "${iconPackPackageName ?: "default"}_${app.packageName}"
+            val cachedIcon = iconCache[cacheKey]
+            if (cachedIcon != null) {
+                app.icon = cachedIcon
+            }
+
+            val matchInfo = MatchInfo(app, 0, 0)
+            val appView = getOrCreateAppView(matchInfo)
+            val params = LinearLayout.LayoutParams(appWidth, LinearLayout.LayoutParams.MATCH_PARENT)
+            appView.layoutParams = params
+            appsContainer.addView(appView)
+
+            // Load icon async if not cached
+            if (app.icon == null) {
+                mainScope.launch(Dispatchers.IO) {
+                    val icon = try {
+                        getIconFromPack(app.packageName)
+                            ?: packageManager.getApplicationIcon(app.packageName)
+                    } catch (e: Exception) {
+                        null
+                    }
+                    withContext(Dispatchers.Main) {
+                        val resolvedIcon = icon ?: getDrawable(android.R.drawable.sym_def_app_icon)!!
+                        iconCache[cacheKey] = resolvedIcon
+                        app.icon = resolvedIcon
+                        for (i in 0 until appsContainer.childCount) {
+                            val child = appsContainer.getChildAt(i)
+                            if (child is LinearLayout && (child.tag as? MatchInfo)?.app?.packageName == app.packageName) {
+                                child.findViewById<ImageView>(android.R.id.icon)?.setImageDrawable(resolvedIcon)
+                                break
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        appsContainer.gravity = Gravity.CENTER
     }
 
     private fun getInstalledIconPacks(): List<IconPackInfo> {
