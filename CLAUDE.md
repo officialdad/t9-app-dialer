@@ -2,6 +2,10 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## MCP Usage
+
+- **Always use Context7 MCP** when needing library/API documentation, code generation, setup, or configuration steps — without requiring the user to explicitly ask for it.
+
 ## Project Overview
 
 **T9 Dialer** - A minimal Android T9 predictive text app launcher built with Kotlin.
