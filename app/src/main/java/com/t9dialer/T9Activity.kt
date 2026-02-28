@@ -62,6 +62,11 @@ class T9Activity : Activity() {
     private val mainScope = CoroutineScope(Dispatchers.Main + SupervisorJob())
     private var cachedIconPacks: List<IconPackInfo>? = null
 
+    // Debounce job for search
+    private var searchDebounceJob: Job? = null
+    // Loading state for first key press
+    private var appsLoading = false
+
     // Uninstall state - refresh app list when returning
     private var pendingUninstallRefresh = false
 
@@ -98,6 +103,20 @@ class T9Activity : Activity() {
         private const val DEFAULT_APP_WIDTH = 102
         private const val DEFAULT_APP_ICON_SIZE = 72
         private const val DEFAULT_APP_LABEL_SIZE_SP = 12
+        private const val VIEW_POOL_MAX_SIZE = 10
+        private const val SEARCH_DEBOUNCE_MS = 50L
+
+        // Pre-computed T9 character map — allocated once, used for all lookups
+        private val T9_MAP = mapOf(
+            'a' to '2', 'b' to '2', 'c' to '2',
+            'd' to '3', 'e' to '3', 'f' to '3',
+            'g' to '4', 'h' to '4', 'i' to '4',
+            'j' to '5', 'k' to '5', 'l' to '5',
+            'm' to '6', 'n' to '6', 'o' to '6',
+            'p' to '7', 'q' to '7', 'r' to '7', 's' to '7',
+            't' to '8', 'u' to '8', 'v' to '8',
+            'w' to '9', 'x' to '9', 'y' to '9', 'z' to '9'
+        )
     }
 
     // Get scale factor based on container width
@@ -203,6 +222,12 @@ class T9Activity : Activity() {
         }
 
         // Apps will be loaded on first key press for faster startup
+
+        // Enable profiling in debug builds — view with: logcat -s T9Perf:*
+        if (applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE != 0) {
+            PerfTrace.enable()
+            PerfTrace.startMainThreadMonitor()
+        }
     }
 
     override fun dispatchTouchEvent(ev: MotionEvent): Boolean {
@@ -276,6 +301,8 @@ class T9Activity : Activity() {
 
     override fun onDestroy() {
         super.onDestroy()
+        searchDebounceJob?.cancel()
+        PerfTrace.disable()
         mainScope.cancel()  // Clean up coroutines
     }
 
@@ -286,6 +313,7 @@ class T9Activity : Activity() {
             pendingUninstallRefresh = false
             currentQuery = ""
             appsLoaded = false
+            appsLoading = false
             allApps = emptyList()
             iconCache.clear()
             updateAppsList()
@@ -294,17 +322,11 @@ class T9Activity : Activity() {
 
     // Convert string to T9 digit sequence for fast matching
     private fun stringToT9(text: String): String {
-        val t9Map = mapOf(
-            'a' to '2', 'b' to '2', 'c' to '2',
-            'd' to '3', 'e' to '3', 'f' to '3',
-            'g' to '4', 'h' to '4', 'i' to '4',
-            'j' to '5', 'k' to '5', 'l' to '5',
-            'm' to '6', 'n' to '6', 'o' to '6',
-            'p' to '7', 'q' to '7', 'r' to '7', 's' to '7',
-            't' to '8', 'u' to '8', 'v' to '8',
-            'w' to '9', 'x' to '9', 'y' to '9', 'z' to '9'
-        )
-        return text.lowercase().map { t9Map[it] ?: ' ' }.joinToString("")
+        val sb = StringBuilder(text.length)
+        for (c in text.lowercase()) {
+            sb.append(T9_MAP[c] ?: ' ')
+        }
+        return sb.toString()
     }
 
     private fun loadThemePreference() {
@@ -319,7 +341,10 @@ class T9Activity : Activity() {
         iconPackPackageName?.let { packageName ->
             try {
                 iconPackResources = packageManager.getResourcesForApplication(packageName)
-                loadIconPackMappings(packageName)
+                // Parse icon pack XML in background to avoid blocking startup
+                mainScope.launch(Dispatchers.IO) {
+                    loadIconPackMappings(packageName)
+                }
             } catch (e: PackageManager.NameNotFoundException) {
                 // Icon pack uninstalled, clear preference
                 iconPackPackageName = null
@@ -1065,18 +1090,48 @@ class T9Activity : Activity() {
         // Block input during move mode
         if (isMoveModeActive) return
 
-        // Load apps on first key press
-        if (!appsLoaded) {
+        currentQuery += digit
+
+        // Load apps on first key press — show loading state while waiting
+        if (!appsLoaded && !appsLoading) {
+            appsLoading = true
+            showLoadingState()
             loadInstalledApps()
+            return  // updateAppsList() will be called when loading completes
         }
 
-        currentQuery += digit
-        updateAppsList()
+        // Debounce rapid key presses
+        searchDebounceJob?.cancel()
+        searchDebounceJob = mainScope.launch {
+            delay(SEARCH_DEBOUNCE_MS)
+            updateAppsList()
+        }
+    }
+
+    private fun showLoadingState() {
+        appsContainer.removeAllViews()
+        val textColor = if (isLightTheme) {
+            getColor(R.color.light_app_text)
+        } else {
+            getColor(R.color.dark_app_text)
+        }
+        val loadingView = TextView(this).apply {
+            text = "Loading..."
+            textSize = 14f
+            setTextColor(textColor)
+            gravity = Gravity.CENTER
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.MATCH_PARENT
+            )
+        }
+        appsContainer.addView(loadingView)
     }
 
     private fun loadInstalledApps() {
         // Load apps in background for better performance
         mainScope.launch(Dispatchers.IO) {
+            PerfTrace.begin("loadInstalledApps")
             val pm = packageManager
 
             // Query only apps with LAUNCHER intent (same as default launcher)
@@ -1084,8 +1139,11 @@ class T9Activity : Activity() {
                 addCategory(Intent.CATEGORY_LAUNCHER)
             }
 
+            PerfTrace.begin("queryIntentActivities")
             val launcherActivities = pm.queryIntentActivities(mainIntent, 0)
+            PerfTrace.end("queryIntentActivities")
 
+            PerfTrace.begin("buildAppList")
             val apps = launcherActivities
                 .map { resolveInfo ->
                     val packageName = resolveInfo.activityInfo.packageName
@@ -1100,95 +1158,96 @@ class T9Activity : Activity() {
                 }
                 .distinctBy { it.packageName }
                 .sortedBy { it.name }
+            PerfTrace.end("buildAppList")
+            PerfTrace.end("loadInstalledApps")
 
             withContext(Dispatchers.Main) {
                 allApps = apps
-                appsLoaded = true  // Mark as loaded after apps are ready
-                updateAppsList()  // Refresh UI if search is active
+                appsLoaded = true
+                appsLoading = false
+                updateAppsList()  // Refresh with search results now that apps are ready
             }
         }
+    }
+
+    private fun recycleViews() {
+        for (i in 0 until appsContainer.childCount) {
+            val child = appsContainer.getChildAt(i)
+            if (child is LinearLayout && child.tag is MatchInfo && viewPool.size < VIEW_POOL_MAX_SIZE) {
+                viewPool.add(child)
+            }
+        }
+        appsContainer.removeAllViews()
     }
 
     private fun updateAppsList() {
         // Only show apps when there's a search query
         if (currentQuery.isEmpty()) {
-            // Store old views for recycling
-            for (i in 0 until appsContainer.childCount) {
-                val child = appsContainer.getChildAt(i)
-                if (child is LinearLayout && child.tag is MatchInfo) {
-                    viewPool.add(child)
-                }
-            }
-            appsContainer.removeAllViews()
+            recycleViews()
             return
         }
 
-        // Optimized search with early termination
+        // Full scan — collect all matches across all priorities
+        PerfTrace.begin("t9Search[${currentQuery}]")
         val matchedApps = mutableListOf<MatchInfo>()
-        var foundPriorityZero = 0
-
-        // Early termination: stop after finding 3 priority-0 (beginning) matches
         for (app in allApps) {
-            // Stop if we have 3 apps starting with the query (priority 0)
-            if (foundPriorityZero >= 3) break
-
             val matchInfo = getMatchInfo(app, currentQuery)
             if (matchInfo != null) {
                 matchedApps.add(matchInfo)
-                if (matchInfo.matchPriority == 0) {
-                    foundPriorityZero++
-                }
             }
         }
 
-        // Sort matched apps
+        // Sort matched apps by priority, then name length, then name
         val sortedApps = matchedApps
             .sortedWith(compareBy<MatchInfo> { it.matchPriority }
                 .thenBy { it.app.name.length }
                 .thenBy { it.app.name })
             .take(3)
+        PerfTrace.end("t9Search[${currentQuery}]")
 
-        // Load icons first, then prepare views
-        for (matchInfo in sortedApps) {
-            // Ensure icon is loaded before displaying view
-            if (matchInfo.app.icon == null) {
-                val cacheKey = "${iconPackPackageName ?: "default"}_${matchInfo.app.packageName}"
-                val cachedIcon = iconCache[cacheKey]
-                if (cachedIcon != null) {
-                    matchInfo.app.icon = cachedIcon
-                } else {
-                    // Load icon synchronously for smooth appearance
-                    try {
-                        val icon = getIconFromPack(matchInfo.app.packageName)
-                            ?: packageManager.getApplicationIcon(matchInfo.app.packageName)
-                        iconCache[cacheKey] = icon
-                        matchInfo.app.icon = icon
-                    } catch (e: Exception) {
-                        // Use default if loading fails
-                        matchInfo.app.icon = getDrawable(android.R.drawable.sym_def_app_icon)
-                    }
-                }
-            }
-        }
-
-        // Now update container after all icons are loaded
-        // Store old views for recycling
-        for (i in 0 until appsContainer.childCount) {
-            val child = appsContainer.getChildAt(i)
-            if (child is LinearLayout && child.tag is MatchInfo) {
-                viewPool.add(child)
-            }
-        }
-        appsContainer.removeAllViews()
-
-        // Add views with icons ready
-        // Use scaled width per app (1/3 of container) to prevent ripple stretching
+        // Immediately show views with cached icons or placeholders
+        recycleViews()
         val appWidth = dpToPx(getScaledAppWidth())
         for (matchInfo in sortedApps) {
+            // Use cached icon if available
+            val cacheKey = "${iconPackPackageName ?: "default"}_${matchInfo.app.packageName}"
+            val cachedIcon = iconCache[cacheKey]
+            if (cachedIcon != null) {
+                matchInfo.app.icon = cachedIcon
+            }
+
             val appView = getOrCreateAppView(matchInfo)
             val params = LinearLayout.LayoutParams(appWidth, LinearLayout.LayoutParams.MATCH_PARENT)
             appView.layoutParams = params
             appsContainer.addView(appView)
+        }
+
+        // Load missing icons asynchronously
+        for (matchInfo in sortedApps) {
+            if (matchInfo.app.icon == null) {
+                val cacheKey = "${iconPackPackageName ?: "default"}_${matchInfo.app.packageName}"
+                mainScope.launch(Dispatchers.IO) {
+                    val icon = try {
+                        getIconFromPack(matchInfo.app.packageName)
+                            ?: packageManager.getApplicationIcon(matchInfo.app.packageName)
+                    } catch (e: Exception) {
+                        null
+                    }
+                    withContext(Dispatchers.Main) {
+                        val resolvedIcon = icon ?: getDrawable(android.R.drawable.sym_def_app_icon)!!
+                        iconCache[cacheKey] = resolvedIcon
+                        matchInfo.app.icon = resolvedIcon
+                        // Update the ImageView if still visible
+                        for (i in 0 until appsContainer.childCount) {
+                            val child = appsContainer.getChildAt(i)
+                            if (child is LinearLayout && (child.tag as? MatchInfo)?.app?.packageName == matchInfo.app.packageName) {
+                                child.findViewById<ImageView>(android.R.id.icon)?.setImageDrawable(resolvedIcon)
+                                break
+                            }
+                        }
+                    }
+                }
+            }
         }
 
         // Center apps when fewer than 3 results

@@ -1,0 +1,153 @@
+package com.t9dialer
+
+import android.os.Looper
+import android.util.Log
+import android.util.Printer
+import android.view.Choreographer
+import java.util.concurrent.TimeUnit
+
+/**
+ * Lightweight programmatic profiler for measuring app performance without Android Studio.
+ * All output goes to logcat — filter with: logcat -s T9Perf:*
+ *
+ * Usage:
+ *   PerfTrace.enable()                        // Enable in onCreate
+ *   PerfTrace.begin("loadApps")               // Start timing a section
+ *   PerfTrace.end("loadApps")                 // End timing (logs duration)
+ *   val result = PerfTrace.measure("search") { doSearch() }  // Inline timing
+ *   PerfTrace.disable()                       // Disable in onDestroy
+ */
+object PerfTrace {
+    private const val TAG = "T9Perf"
+    private const val MAIN_THREAD_BLOCK_THRESHOLD_MS = 16L  // 1 frame at 60fps
+
+    @Volatile
+    var enabled = false
+        private set
+
+    // Active trace sections
+    private val activeTraces = HashMap<String, Long>()
+
+    // Main thread monitor state
+    private var mainThreadMonitorActive = false
+    private var dispatchStartTime = 0L
+
+    // FPS monitor state
+    private var fpsCallback: FpsCallback? = null
+
+    fun enable() {
+        enabled = true
+        Log.i(TAG, "=== Profiling enabled ===")
+    }
+
+    fun disable() {
+        stopFpsMonitor()
+        stopMainThreadMonitor()
+        enabled = false
+        Log.i(TAG, "=== Profiling disabled ===")
+    }
+
+    /** Start timing a named section */
+    fun begin(label: String) {
+        if (!enabled) return
+        activeTraces[label] = System.nanoTime()
+    }
+
+    /** End timing a named section and log the duration */
+    fun end(label: String) {
+        if (!enabled) return
+        val startNanos = activeTraces.remove(label) ?: return
+        val elapsedMs = (System.nanoTime() - startNanos) / 1_000_000.0
+        Log.d(TAG, "$label: %.2fms".format(elapsedMs))
+    }
+
+    /** Measure a block inline and return its result */
+    fun <T> measure(label: String, block: () -> T): T {
+        if (!enabled) return block()
+        val start = System.nanoTime()
+        val result = block()
+        val elapsedMs = (System.nanoTime() - start) / 1_000_000.0
+        Log.d(TAG, "$label: %.2fms".format(elapsedMs))
+        return result
+    }
+
+    /** Log current memory usage */
+    fun logMemory() {
+        if (!enabled) return
+        val runtime = Runtime.getRuntime()
+        val used = (runtime.totalMemory() - runtime.freeMemory()) / 1024
+        val max = runtime.maxMemory() / 1024
+        Log.d(TAG, "Memory: ${used}KB / ${max}KB (${used * 100 / max}%%)")
+    }
+
+    /**
+     * Start monitoring main thread for blocking operations.
+     * Logs a warning when any message dispatch exceeds the frame threshold.
+     */
+    fun startMainThreadMonitor() {
+        if (!enabled || mainThreadMonitorActive) return
+        mainThreadMonitorActive = true
+        Looper.getMainLooper().setMessageLogging(object : Printer {
+            override fun println(message: String) {
+                if (message.startsWith(">>>>> Dispatching")) {
+                    dispatchStartTime = System.currentTimeMillis()
+                } else if (message.startsWith("<<<<< Finished")) {
+                    val duration = System.currentTimeMillis() - dispatchStartTime
+                    if (duration > MAIN_THREAD_BLOCK_THRESHOLD_MS) {
+                        Log.w(TAG, "Main thread blocked: ${duration}ms")
+                    }
+                }
+            }
+        })
+        Log.d(TAG, "Main thread monitor started (threshold: ${MAIN_THREAD_BLOCK_THRESHOLD_MS}ms)")
+    }
+
+    fun stopMainThreadMonitor() {
+        if (!mainThreadMonitorActive) return
+        mainThreadMonitorActive = false
+        Looper.getMainLooper().setMessageLogging(null)
+    }
+
+    /**
+     * Start FPS monitoring via Choreographer. Logs FPS every second.
+     */
+    fun startFpsMonitor() {
+        if (!enabled || fpsCallback != null) return
+        fpsCallback = FpsCallback().also {
+            Choreographer.getInstance().postFrameCallback(it)
+        }
+        Log.d(TAG, "FPS monitor started")
+    }
+
+    fun stopFpsMonitor() {
+        fpsCallback?.let {
+            Choreographer.getInstance().removeFrameCallback(it)
+            fpsCallback = null
+        }
+    }
+
+    private class FpsCallback : Choreographer.FrameCallback {
+        private var frameCount = 0
+        private var intervalStartNanos = 0L
+
+        override fun doFrame(frameTimeNanos: Long) {
+            if (intervalStartNanos == 0L) {
+                intervalStartNanos = frameTimeNanos
+                Choreographer.getInstance().postFrameCallback(this)
+                return
+            }
+
+            frameCount++
+            val elapsed = frameTimeNanos - intervalStartNanos
+
+            if (elapsed >= TimeUnit.SECONDS.toNanos(1)) {
+                val fps = frameCount * 1_000_000_000.0 / elapsed
+                Log.d(TAG, "FPS: %.1f (%d frames)".format(fps, frameCount))
+                frameCount = 0
+                intervalStartNanos = frameTimeNanos
+            }
+
+            Choreographer.getInstance().postFrameCallback(this)
+        }
+    }
+}
