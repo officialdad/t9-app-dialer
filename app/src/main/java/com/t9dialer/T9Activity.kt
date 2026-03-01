@@ -107,6 +107,7 @@ class T9Activity : Activity() {
         private const val SEARCH_DEBOUNCE_MS = 50L
         private const val MAX_RECENT_APPS = 3
         private const val PREF_RECENT_APPS = "recent_apps"
+        private const val PREF_CACHED_APPS = "cached_apps"
 
         // Pre-computed T9 character map — allocated once, used for all lookups
         private val T9_MAP = mapOf(
@@ -320,7 +321,8 @@ class T9Activity : Activity() {
             appsLoading = false
             allApps = emptyList()
             iconCache.clear()
-            updateAppsList()
+            // Reload app list from PackageManager to re-index
+            loadInstalledApps()
         }
     }
 
@@ -1125,12 +1127,22 @@ class T9Activity : Activity() {
     }
 
     private fun loadInstalledApps() {
-        // Load apps in background for better performance
+        // Try loading from cache first for instant startup
+        if (!appsLoaded) {
+            val cached = loadAppsFromCache()
+            if (cached.isNotEmpty()) {
+                allApps = cached
+                appsLoaded = true
+                appsLoading = false
+                updateAppsList()
+            }
+        }
+
+        // Always refresh from PackageManager in background
         mainScope.launch(Dispatchers.IO) {
             PerfTrace.begin("loadInstalledApps")
             val pm = packageManager
 
-            // Query only apps with LAUNCHER intent (same as default launcher)
             val mainIntent = Intent(Intent.ACTION_MAIN, null).apply {
                 addCategory(Intent.CATEGORY_LAUNCHER)
             }
@@ -1148,8 +1160,8 @@ class T9Activity : Activity() {
                     AppInfo(
                         name = appName,
                         packageName = packageName,
-                        t9Sequence = stringToT9(appName),  // Pre-compute T9 sequence
-                        icon = null  // Icons loaded lazily when needed
+                        t9Sequence = stringToT9(appName),
+                        icon = null
                     )
                 }
                 .distinctBy { it.packageName }
@@ -1157,12 +1169,53 @@ class T9Activity : Activity() {
             PerfTrace.end("buildAppList")
             PerfTrace.end("loadInstalledApps")
 
+            // Save to cache for next cold start
+            saveAppsToCache(apps)
+
             withContext(Dispatchers.Main) {
                 allApps = apps
                 appsLoaded = true
                 appsLoading = false
-                updateAppsList()  // Refresh with search results now that apps are ready
+                updateAppsList()
             }
+        }
+    }
+
+    private fun saveAppsToCache(apps: List<AppInfo>) {
+        try {
+            val prefs = getSharedPreferences("T9Dialer", Context.MODE_PRIVATE)
+            // Store as "name\tpackage" lines — lightweight, no JSON dependency
+            val data = apps.joinToString("\n") { "${it.name}\t${it.packageName}" }
+            prefs.edit().putString(PREF_CACHED_APPS, data).apply()
+        } catch (_: Exception) {
+            // Non-critical — cache miss just means slower next startup
+        }
+    }
+
+    private fun loadAppsFromCache(): List<AppInfo> {
+        return try {
+            PerfTrace.begin("loadAppsFromCache")
+            val prefs = getSharedPreferences("T9Dialer", Context.MODE_PRIVATE)
+            val data = prefs.getString(PREF_CACHED_APPS, "") ?: ""
+            if (data.isEmpty()) {
+                PerfTrace.end("loadAppsFromCache")
+                return emptyList()
+            }
+            val apps = data.split("\n").mapNotNull { line ->
+                val parts = line.split("\t", limit = 2)
+                if (parts.size == 2) {
+                    AppInfo(
+                        name = parts[0],
+                        packageName = parts[1],
+                        t9Sequence = stringToT9(parts[0]),
+                        icon = null
+                    )
+                } else null
+            }
+            PerfTrace.end("loadAppsFromCache")
+            apps
+        } catch (_: Exception) {
+            emptyList()
         }
     }
 
@@ -1641,6 +1694,8 @@ class T9Activity : Activity() {
         dialog.setContentView(view)
         dialog.setCancelable(true)
 
+        val scale = getScaleFactor()
+
         // Apply theme colors
         val card = view.findViewById<com.google.android.material.card.MaterialCardView>(R.id.dialogCard)
         val container = view.findViewById<LinearLayout>(R.id.dialogContainer)
@@ -1653,10 +1708,25 @@ class T9Activity : Activity() {
         val borderColor = if (isLightTheme) getColor(R.color.light_border) else getColor(R.color.dark_border)
         val buttonColor = if (isLightTheme) getColor(R.color.light_dialog_button) else getColor(R.color.dark_dialog_button)
 
+        // Scale dialog card width
+        val cardParams = card.layoutParams
+        cardParams.width = dpToPx((280 * scale).toInt())
+        card.layoutParams = cardParams
+        card.radius = dpToPx((16 * scale).toInt()).toFloat()
+
         card.setCardBackgroundColor(bgColor)
         card.strokeColor = borderColor
         container.setBackgroundColor(bgColor)
+
+        // Scale title
+        val scaledPad = dpToPx((20 * scale).toInt())
+        title.setPadding(scaledPad, scaledPad, scaledPad, dpToPx((12 * scale).toInt()))
+        title.textSize = 18 * scale
         title.setTextColor(titleColor)
+
+        // Scale cancel button
+        cancelButton.setPadding(scaledPad, dpToPx((16 * scale).toInt()), scaledPad, dpToPx((16 * scale).toInt()))
+        cancelButton.textSize = 14 * scale
         cancelButton.setTextColor(buttonColor)
 
         // Dismiss on background tap
@@ -1680,10 +1750,16 @@ class T9Activity : Activity() {
         onClick: () -> Unit
     ) {
         val itemView = LayoutInflater.from(this).inflate(R.layout.dialog_item, container, false)
+        val scale = getScaleFactor()
 
         val itemIcon = itemView.findViewById<ImageView>(R.id.itemIcon)
         val itemText = itemView.findViewById<TextView>(R.id.itemText)
         val itemCheck = itemView.findViewById<ImageView>(R.id.itemCheck)
+
+        // Scale item padding
+        val hPad = dpToPx((20 * scale).toInt())
+        val vPad = dpToPx((14 * scale).toInt())
+        itemView.setPadding(hPad, vPad, hPad, vPad)
 
         // Apply theme colors
         val textColor = if (isLightTheme) getColor(R.color.light_dialog_text) else getColor(R.color.dark_dialog_text)
@@ -1691,10 +1767,18 @@ class T9Activity : Activity() {
 
         itemText.text = text
         itemText.setTextColor(textColor)
+        itemText.textSize = 16 * scale
 
         if (icon != null) {
             itemIcon.setImageDrawable(icon)
             itemIcon.visibility = android.view.View.VISIBLE
+            // Scale icon size
+            val iconSize = dpToPx((32 * scale).toInt())
+            val iconParams = itemIcon.layoutParams
+            iconParams.width = iconSize
+            iconParams.height = iconSize
+            itemIcon.layoutParams = iconParams
+            (iconParams as? LinearLayout.LayoutParams)?.marginEnd = dpToPx((16 * scale).toInt())
         } else {
             itemIcon.visibility = android.view.View.GONE
         }
@@ -1704,6 +1788,12 @@ class T9Activity : Activity() {
             checkDrawable?.setTint(checkColor)
             itemCheck.setImageDrawable(checkDrawable)
             itemCheck.visibility = android.view.View.VISIBLE
+            // Scale check icon
+            val checkSize = dpToPx((24 * scale).toInt())
+            val checkParams = itemCheck.layoutParams
+            checkParams.width = checkSize
+            checkParams.height = checkSize
+            itemCheck.layoutParams = checkParams
         } else {
             itemCheck.visibility = android.view.View.GONE
         }
@@ -1784,6 +1874,7 @@ class T9Activity : Activity() {
         val (dialog, view) = createCustomDialog()
         val title = view.findViewById<TextView>(R.id.dialogTitle)
         val itemsContainer = view.findViewById<LinearLayout>(R.id.dialogItemsContainer)
+        val scale = getScaleFactor()
 
         title.text = "T9 App Dialer"
 
@@ -1794,12 +1885,15 @@ class T9Activity : Activity() {
         val appIconLayout = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER
-            setPadding(dpToPx(20), dpToPx(8), dpToPx(20), dpToPx(8))
+            val pad = dpToPx((20 * scale).toInt())
+            val vPad = dpToPx((8 * scale).toInt())
+            setPadding(pad, vPad, pad, vPad)
         }
 
+        val iconSize = dpToPx((72 * scale).toInt())
         val appIcon = ImageView(this).apply {
             setImageDrawable(getDrawable(R.drawable.ic_launcher))
-            layoutParams = LinearLayout.LayoutParams(dpToPx(72), dpToPx(72))
+            layoutParams = LinearLayout.LayoutParams(iconSize, iconSize)
         }
         appIconLayout.addView(appIcon)
         itemsContainer.addView(appIconLayout)
