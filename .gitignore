@@ -46,3 +46,6 @@ gen-external-apklibs
 
 # End of https://www.toptal.com/developers/gitignore/api/android
 
+# Local environment / secrets
+.env
+
