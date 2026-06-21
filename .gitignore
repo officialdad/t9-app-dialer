@@ -30,6 +30,7 @@ render.experimental.xml
 *.jks
 *.keystore
 keystore-base64.txt
+keystore.properties
 
 # Google Services (e.g. APIs or Firebase)
 google-services.json
