@@ -40,7 +40,7 @@ settings.gradle.kts            # Project settings
 - **Clean**: `gradle clean`
 - **Install**: `termux-open app/build/outputs/apk/debug/app-debug.apk`
 
-**Important**: All development is done in Termux. Always run `termux-open` as the final step after a successful build so the user can test the app.
+**Important**: The user builds/tests in Termux on-device. But sessions often run on a **headless Linux server with no Android SDK** (`ANDROID_HOME` unset, no `sdkmanager`) — `gradle assembleDebug` cannot build there. In that case: commit + push the branch and the user clones + builds on-device. Only run `termux-open` when actually building inside Termux.
 
 ### Architecture Notes
 - Single-activity app with dialog-style window
@@ -48,10 +48,19 @@ settings.gradle.kts            # Project settings
 - `SharedPreferences` for theme and icon pack persistence
 - View recycling pool for search results performance
 - Pre-computed T9 sequences for fast matching
+- **Package visibility**: manifest `<queries>` (MAIN/LAUNCHER + icon-pack theme intents `org.adw.launcher.THEMES`, `com.gau.go.launcherex.theme`). Do NOT re-add `QUERY_ALL_PACKAGES` — it was intentionally dropped (Play sensitive permission)
+- **No in-app uninstall** (Play compliance): app long-press menu = App Info + Play Store only
+- App list **re-indexes on `onResume`** (first resume skipped) to pick up external installs/uninstalls — don't remove
+- Versions owned by Gradle (`app/build.gradle.kts`); manifest has no `versionCode`/`versionName`/`<uses-sdk>`. `allowBackup=false`
 
 ### CI/CD
 - GitHub Actions builds release APK on version tags (`v*`)
 - Use `/release` command to bump version and trigger
+- CI keeps building an **APK** for the GitHub channel; the Play **AAB** is built separately (Play App Signing)
+
+### Google Play release (in progress)
+- Play = primary future-proof channel (GitHub kept). Work branch: `release/play-store-prep`
+- Plan + locked decisions + bucket breakdown: `docs/superpowers/specs/2026-06-21-play-store-release-design.md`
 
 ## Universal Development Guidelines
 
