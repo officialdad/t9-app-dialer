@@ -9,7 +9,6 @@ import android.content.ClipboardManager
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
-import android.content.pm.ApplicationInfo
 import android.content.pm.PackageManager
 import android.content.res.Resources
 import android.graphics.drawable.Drawable
@@ -53,8 +52,7 @@ class T9Activity : Activity() {
     private var isLightTheme = false
     private var iconPackPackageName: String? = null
     private var iconPackResources: Resources? = null
-    private var iconPackMappings: MutableMap<String, String> = mutableMapOf()
-    private val debugLog = StringBuilder()
+    private val iconPackMappings: MutableMap<String, String> = ConcurrentHashMap()
 
     // Performance optimizations
     private val iconCache = ConcurrentHashMap<String, Drawable>()
@@ -66,9 +64,6 @@ class T9Activity : Activity() {
     private var searchDebounceJob: Job? = null
     // Loading state for first key press
     private var appsLoading = false
-
-    // Uninstall state - refresh app list when returning
-    private var pendingUninstallRefresh = false
 
     // Move mode state for repositioning the dialog
     private var isMoveModeActive = false
@@ -226,13 +221,6 @@ class T9Activity : Activity() {
 
         // Load apps eagerly so recent apps can be shown on startup
         loadInstalledApps()
-
-        // Enable profiling in debug builds
-        // View with: cat /sdcard/Download/t9perf.log
-        if (applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE != 0) {
-            PerfTrace.init(this)
-            PerfTrace.startMainThreadMonitor()
-        }
     }
 
     override fun dispatchTouchEvent(ev: MotionEvent): Boolean {
@@ -307,23 +295,7 @@ class T9Activity : Activity() {
     override fun onDestroy() {
         super.onDestroy()
         searchDebounceJob?.cancel()
-        PerfTrace.disable()
         mainScope.cancel()  // Clean up coroutines
-    }
-
-    override fun onResume() {
-        super.onResume()
-        // Refresh app list after returning from uninstall
-        if (pendingUninstallRefresh) {
-            pendingUninstallRefresh = false
-            currentQuery = ""
-            appsLoaded = false
-            appsLoading = false
-            allApps = emptyList()
-            iconCache.clear()
-            // Reload app list from PackageManager to re-index
-            loadInstalledApps()
-        }
     }
 
     // Convert string to T9 digit sequence for fast matching
@@ -831,11 +803,7 @@ class T9Activity : Activity() {
 
     private fun loadIconPackMappings(packageName: String) {
         iconPackMappings.clear()
-        debugLog.clear()
         val res = iconPackResources ?: return
-
-        debugLog.append("=== ICON PACK DEBUG ===\n")
-        debugLog.append("Package: $packageName\n\n")
 
         try {
             // Try to find appfilter in xml or raw resources
@@ -843,15 +811,11 @@ class T9Activity : Activity() {
             var isRawResource = false
 
             if (appfilterId == 0) {
-                debugLog.append("appfilter not found in xml, trying raw...\n")
                 appfilterId = res.getIdentifier("appfilter", "raw", packageName)
                 isRawResource = true
             }
 
             if (appfilterId != 0) {
-                debugLog.append("✓ Found appfilter (ID: $appfilterId)\n")
-                debugLog.append("Type: ${if (isRawResource) "raw" else "xml"}\n\n")
-
                 val parser: XmlPullParser
 
                 if (isRawResource) {
@@ -866,9 +830,6 @@ class T9Activity : Activity() {
                 }
 
                 var eventType = parser.eventType
-                var itemCount = 0
-                val sampleMappings = mutableListOf<String>()
-
                 while (eventType != XmlPullParser.END_DOCUMENT) {
                     if (eventType == XmlPullParser.START_TAG && parser.name == "item") {
                         val component = parser.getAttributeValue(null, "component")
@@ -889,41 +850,13 @@ class T9Activity : Activity() {
                             }
 
                             iconPackMappings[componentPackage] = drawable
-                            itemCount++
-
-                            if (itemCount <= 5) {
-                                sampleMappings.add("$componentPackage -> $drawable")
-                            }
                         }
                     }
                     eventType = parser.next()
                 }
-
-                debugLog.append("✓ Parsed successfully!\n")
-                debugLog.append("Total mappings: ${iconPackMappings.size}\n\n")
-                if (sampleMappings.isNotEmpty()) {
-                    debugLog.append("Sample mappings:\n")
-                    sampleMappings.forEach { debugLog.append("  $it\n") }
-                }
-            } else {
-                debugLog.append("✗ No appfilter found!\n\n")
-
-                // List all available XML resources
-                try {
-                    val fields = Class.forName("${packageName}.R\$xml").declaredFields
-                    if (fields.isNotEmpty()) {
-                        debugLog.append("Available XML resources:\n")
-                        fields.forEach { debugLog.append("  - ${it.name}\n") }
-                    } else {
-                        debugLog.append("No XML resources found\n")
-                    }
-                } catch (e: Exception) {
-                    debugLog.append("Could not list XML: ${e.message}\n")
-                }
             }
         } catch (e: Exception) {
-            debugLog.append("\n✗ ERROR: ${e.message}\n")
-            debugLog.append("${e.stackTraceToString()}\n")
+            // Icon pack parse failed — fall back to default system icons
         }
     }
 
@@ -1140,18 +1073,14 @@ class T9Activity : Activity() {
 
         // Always refresh from PackageManager in background
         mainScope.launch(Dispatchers.IO) {
-            PerfTrace.begin("loadInstalledApps")
             val pm = packageManager
 
             val mainIntent = Intent(Intent.ACTION_MAIN, null).apply {
                 addCategory(Intent.CATEGORY_LAUNCHER)
             }
 
-            PerfTrace.begin("queryIntentActivities")
             val launcherActivities = pm.queryIntentActivities(mainIntent, 0)
-            PerfTrace.end("queryIntentActivities")
 
-            PerfTrace.begin("buildAppList")
             val apps = launcherActivities
                 .map { resolveInfo ->
                     val packageName = resolveInfo.activityInfo.packageName
@@ -1166,8 +1095,6 @@ class T9Activity : Activity() {
                 }
                 .distinctBy { it.packageName }
                 .sortedBy { it.name }
-            PerfTrace.end("buildAppList")
-            PerfTrace.end("loadInstalledApps")
 
             // Save to cache for next cold start
             saveAppsToCache(apps)
@@ -1194,11 +1121,9 @@ class T9Activity : Activity() {
 
     private fun loadAppsFromCache(): List<AppInfo> {
         return try {
-            PerfTrace.begin("loadAppsFromCache")
             val prefs = getSharedPreferences("T9Dialer", Context.MODE_PRIVATE)
             val data = prefs.getString(PREF_CACHED_APPS, "") ?: ""
             if (data.isEmpty()) {
-                PerfTrace.end("loadAppsFromCache")
                 return emptyList()
             }
             val apps = data.split("\n").mapNotNull { line ->
@@ -1212,7 +1137,6 @@ class T9Activity : Activity() {
                     )
                 } else null
             }
-            PerfTrace.end("loadAppsFromCache")
             apps
         } catch (_: Exception) {
             emptyList()
@@ -1237,7 +1161,6 @@ class T9Activity : Activity() {
         }
 
         // Full scan — collect all matches across all priorities
-        PerfTrace.begin("t9Search[${currentQuery}]")
         val matchedApps = mutableListOf<MatchInfo>()
         for (app in allApps) {
             val matchInfo = getMatchInfo(app, currentQuery)
@@ -1252,7 +1175,6 @@ class T9Activity : Activity() {
                 .thenBy { it.app.name.length }
                 .thenBy { it.app.name })
             .take(3)
-        PerfTrace.end("t9Search[${currentQuery}]")
 
         // Immediately show views with cached icons or placeholders
         recycleViews()
@@ -1325,39 +1247,6 @@ class T9Activity : Activity() {
         }
     }
 
-    // Lazy load icon with caching
-    private fun loadIconForApp(app: AppInfo, imageView: ImageView? = null) {
-        if (app.icon != null) return  // Already loaded
-
-        // Check cache first
-        val cacheKey = "${iconPackPackageName ?: "default"}_${app.packageName}"
-        val cachedIcon = iconCache[cacheKey]
-        if (cachedIcon != null) {
-            app.icon = cachedIcon
-            imageView?.setImageDrawable(cachedIcon)
-            return
-        }
-
-        // Load icon in background
-        mainScope.launch(Dispatchers.IO) {
-            val pm = packageManager
-            val icon = try {
-                val iconPackIcon = getIconFromPack(app.packageName)
-                iconPackIcon ?: pm.getApplicationIcon(app.packageName)
-            } catch (e: Exception) {
-                pm.getApplicationIcon(app.packageName)
-            }
-
-            iconCache[cacheKey] = icon
-            app.icon = icon
-
-            // Update the ImageView on main thread if provided
-            withContext(Dispatchers.Main) {
-                imageView?.setImageDrawable(icon)
-            }
-        }
-    }
-
     // Get or create app view (with view recycling)
     private fun getOrCreateAppView(matchInfo: MatchInfo): LinearLayout {
         val view = if (viewPool.isNotEmpty()) {
@@ -1426,8 +1315,9 @@ class T9Activity : Activity() {
 
         // Highlight the matched portion of the app name
         val spannable = SpannableString(matchInfo.app.name)
-        val matchStart = matchInfo.matchPosition
-        val matchEnd = matchStart + currentQuery.length
+        // Clamp to name bounds — app names with emoji/multi-codepoint chars can desync the T9 index
+        val matchStart = matchInfo.matchPosition.coerceIn(0, matchInfo.app.name.length)
+        val matchEnd = (matchStart + currentQuery.length).coerceAtMost(matchInfo.app.name.length)
 
         // Get theme-aware colors
         val highlightColor = if (isLightTheme) {
@@ -1616,7 +1506,7 @@ class T9Activity : Activity() {
         iconPacks.add(IconPackInfo(
             "Default (System Icons)",
             "",
-            getDrawable(android.R.drawable.sym_def_app_icon)!!
+            getDrawable(android.R.drawable.sym_def_app_icon) ?: ColorDrawable(0)
         ))
 
         val pm = packageManager
@@ -1830,40 +1720,37 @@ class T9Activity : Activity() {
                 // Save preference
                 val prefs = getSharedPreferences("T9Dialer", Context.MODE_PRIVATE)
                 if (pack.packageName.isEmpty()) {
-                    // Default selected
+                    // Default selected — no XML parsing needed
                     prefs.edit().remove("icon_pack").apply()
                     iconPackPackageName = null
                     iconPackResources = null
                     iconPackMappings.clear()
+                    iconCache.clear()
+                    for (app in allApps) app.icon = null
+                    updateAppsList()
+                    Toast.makeText(this, "Using default icons", Toast.LENGTH_SHORT).show()
+                    dialog.dismiss()
                 } else {
                     prefs.edit().putString("icon_pack", pack.packageName).apply()
                     iconPackPackageName = pack.packageName
-                    try {
-                        iconPackResources = packageManager.getResourcesForApplication(pack.packageName)
-                        loadIconPackMappings(pack.packageName)
+                    iconPackResources = try {
+                        packageManager.getResourcesForApplication(pack.packageName)
                     } catch (e: PackageManager.NameNotFoundException) {
-                        iconPackResources = null
-                        iconPackMappings.clear()
+                        null
+                    }
+                    dialog.dismiss()
+                    // Parse the icon pack's appfilter off the main thread — it can be large (ANR risk)
+                    mainScope.launch(Dispatchers.IO) {
+                        loadIconPackMappings(pack.packageName)
+                        withContext(Dispatchers.Main) {
+                            iconCache.clear()
+                            for (app in allApps) app.icon = null
+                            updateAppsList()
+                            val msg = if (iconPackMappings.isNotEmpty()) "Icon pack applied" else "No icons found in pack"
+                            Toast.makeText(this@T9Activity, msg, Toast.LENGTH_SHORT).show()
+                        }
                     }
                 }
-
-                // Clear icon cache and reload
-                iconCache.clear()
-                for (app in allApps) {
-                    app.icon = null
-                }
-                updateAppsList()
-
-                // Show feedback message
-                val message = if (pack.packageName.isEmpty()) {
-                    "Using default icons"
-                } else {
-                    val iconCount = iconPackMappings.size
-                    if (iconCount > 0) "Icon pack applied" else "No icons found in pack"
-                }
-                Toast.makeText(this, message, Toast.LENGTH_SHORT).show()
-
-                dialog.dismiss()
             }
         }
 
@@ -1899,7 +1786,11 @@ class T9Activity : Activity() {
         itemsContainer.addView(appIconLayout)
 
         // Version as dialog item - opens app info
-        val versionName = packageManager.getPackageInfo(packageName, 0).versionName
+        val versionName = try {
+            packageManager.getPackageInfo(packageName, 0).versionName
+        } catch (e: PackageManager.NameNotFoundException) {
+            null
+        } ?: "?"
         val settingsIcon = getDrawable(R.drawable.ic_settings)?.apply { setTint(iconColor) }
         addDialogItem(itemsContainer, "Version $versionName", icon = settingsIcon) {
             val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
@@ -1939,23 +1830,6 @@ class T9Activity : Activity() {
             val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
             intent.data = Uri.parse("package:${app.packageName}")
             startActivity(intent)
-            dialog.dismiss()
-        }
-
-        // Uninstall option
-        val deleteIcon = getDrawable(R.drawable.ic_delete)?.apply { setTint(iconColor) }
-        addDialogItem(itemsContainer, "Uninstall", icon = deleteIcon) {
-            val packageUri = Uri.parse("package:${app.packageName}")
-            try {
-                val intent = Intent(Intent.ACTION_DELETE, packageUri).apply {
-                    flags = Intent.FLAG_ACTIVITY_NEW_TASK
-                }
-                pendingUninstallRefresh = true
-                applicationContext.startActivity(intent)
-            } catch (e: Exception) {
-                pendingUninstallRefresh = false
-                Toast.makeText(this, "Uninstall failed: ${e.message}", Toast.LENGTH_LONG).show()
-            }
             dialog.dismiss()
         }
 

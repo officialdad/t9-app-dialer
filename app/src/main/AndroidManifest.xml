@@ -1,21 +1,25 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="com.t9dialer"
-    android:versionCode="1"
-    android:versionName="1.0">
+    package="com.t9dialer">
 
-    <uses-sdk
-        android:minSdkVersion="23"
-        android:targetSdkVersion="34" />
-
-    <!-- Permission to query installed apps -->
-    <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES" />
-    <!-- Permission to request app uninstall -->
-    <uses-permission android:name="android.permission.REQUEST_DELETE_PACKAGES" />
+    <!-- A launcher needs to see launchable apps + icon-pack themes (Android 11+ package visibility).
+         This replaces QUERY_ALL_PACKAGES, so no Play sensitive-permission declaration is required. -->
+    <queries>
+        <intent>
+            <action android:name="android.intent.action.MAIN" />
+            <category android:name="android.intent.category.LAUNCHER" />
+        </intent>
+        <intent>
+            <action android:name="org.adw.launcher.THEMES" />
+        </intent>
+        <intent>
+            <action android:name="com.gau.go.launcherex.theme" />
+        </intent>
+    </queries>
 
     <application
-        android:allowBackup="true"
-        android:label="T9 Dialer"
+        android:allowBackup="false"
+        android:label="@string/app_name"
         android:icon="@mipmap/ic_launcher"
         android:theme="@style/Theme.App.Dialog">
 
