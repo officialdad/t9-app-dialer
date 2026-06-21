@@ -14,7 +14,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **Language**: Kotlin 2.1.0
 - **Build**: Gradle 8.7.3 (Kotlin DSL)
 - **Min SDK**: 23 (Android 6.0)
-- **Target SDK**: 34 (Android 14)
+- **Target/Compile SDK**: 35 (Android 15) — Play's current minimum for new apps
 - **Dependencies**: AndroidX Core KTX, AppCompat, Material Design, Coroutines
 
 ### Project Structure
@@ -52,11 +52,14 @@ settings.gradle.kts            # Project settings
 - **No in-app uninstall** (Play compliance): app long-press menu = App Info + Play Store only
 - App list **re-indexes on `onResume`** (first resume skipped) to pick up external installs/uninstalls — don't remove
 - Versions owned by Gradle (`app/build.gradle.kts`); manifest has no `versionCode`/`versionName`/`<uses-sdk>`. `allowBackup=false`
+- Release `signingConfig` is **conditional** on a gitignored `keystore.properties` — keep it conditional so CI's `apk-action` (no such file) still signs the GitHub APK
 
 ### CI/CD
 - GitHub Actions builds release APK on version tags (`v*`)
 - Use `/release` command to bump version and trigger
-- CI keeps building an **APK** for the GitHub channel; the Play **AAB** is built separately (Play App Signing)
+- APK for GitHub: `build-release.yml` (`apk-action`, signed with `KEYSTORE` secret)
+- Play **AAB**: `build-play-aab.yml` (manual `workflow_dispatch`) → signed artifact `t9-app-dialer-aab`. Upload key via gitignored `keystore.properties` (written from `UPLOAD_*` secrets in CI; separate from the GitHub `KEYSTORE`)
+- Gotcha: `workflow_dispatch` needs the workflow on the **default branch** (`main`); dispatch with `--ref release/play-store-prep` to build branch code
 
 ### Google Play release (in progress)
 - Play = primary future-proof channel (GitHub kept). Work branch: `release/play-store-prep`
