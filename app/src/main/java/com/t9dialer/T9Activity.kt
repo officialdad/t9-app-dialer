@@ -65,6 +65,9 @@ class T9Activity : Activity() {
     // Loading state for first key press
     private var appsLoading = false
 
+    // onCreate already indexes apps; skip the very first onResume to avoid a redundant cold-start scan
+    private var skipNextResumeRefresh = true
+
     // Move mode state for repositioning the dialog
     private var isMoveModeActive = false
     private var pendingMoveMode = false  // Wait for finger release before activating
@@ -296,6 +299,18 @@ class T9Activity : Activity() {
         super.onDestroy()
         searchDebounceJob?.cancel()
         mainScope.cancel()  // Clean up coroutines
+    }
+
+    override fun onResume() {
+        super.onResume()
+        // Re-index in the background when returning from elsewhere (e.g. uninstall via App Info,
+        // or an app installed/updated while we were away). loadInstalledApps() re-queries
+        // PackageManager and refreshes the visible list, keeping the current search query.
+        if (skipNextResumeRefresh) {
+            skipNextResumeRefresh = false
+        } else {
+            loadInstalledApps()
+        }
     }
 
     // Convert string to T9 digit sequence for fast matching
