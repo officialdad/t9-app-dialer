@@ -64,6 +64,12 @@ settings.gradle.kts            # Project settings
 ### Google Play release (in progress)
 - Play = primary future-proof channel (GitHub kept). Work branch: `release/play-store-prep`
 - Plan + locked decisions + bucket breakdown: `docs/superpowers/specs/2026-06-21-play-store-release-design.md`
+- **Bucket status:** 1–4 done; 5 done (listing + assets content); 6 (submit) blocked on the dev account.
+- **Compliance docs** (Bucket 4): `docs/privacy.html` (privacy policy) + `docs/play-data-safety.md` (Data Safety answers, all "no"). Privacy policy is **live on GitHub Pages** served from **`main` `/docs`**: `https://officialdad.github.io/t9-app-dialer/privacy.html` (merged via PR #2). Pages reads `main`, so anything it must serve has to be on `main`.
+- **Listing docs** (Bucket 5): `docs/play-store-listing.md` (title **"T9 App Dialer"**, category **Personalization**, descriptions, content-rating + target-audience answers) + `docs/play-assets-checklist.md` (icon 512²/feature graphic 1024×500/screenshots specs). Public contact = `contact@doubleadigital.my`.
+- **Dev account = Organization (Double A Digital).** Needs a **D-U-N-S number** (free, up to ~30 days — the launch long pole); org accounts skip the 12-tester gate that personal accounts have. Details: `docs/superpowers/specs/` + the [[play-publish-prerequisites]] memory.
+- **Developer action items tracked as GitHub issues #3–#7** (label `play-release`): #3 D-U-N-S → #4 register Play org → #7 submit (critical path); #5 assets + #6 on-device AAB smoke test run in parallel.
+- Default new release work to **PR**, not direct-`main` push (the harness auto-mode guard blocks direct pushes to `main`).
 
 ## Universal Development Guidelines
 

@@ -48,7 +48,6 @@ https://github.com/user-attachments/assets/b7e170d2-4254-455b-a8f4-1b0919883c3b
 
 - **App Management** - Long-press apps for quick actions
   - View app info in system settings
-  - Uninstall apps directly
   - Open in Play Store
 
 - **About Dialog** - View version info and GitHub link
@@ -87,7 +86,6 @@ https://github.com/user-attachments/assets/b7e170d2-4254-455b-a8f4-1b0919883c3b
 
 **Long-press any app** in the search results to:
 - View **App Info** in system settings
-- **Uninstall** the app
 - Open in **Play Store**
 
 ## System Requirements
