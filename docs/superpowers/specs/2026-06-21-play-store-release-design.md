@@ -21,9 +21,11 @@ approval risk, approval wins.
 | Decision | Choice | Why |
 |---|---|---|
 | In-app uninstall (`REQUEST_DELETE_PACKAGES`) | **Drop** | Riskiest permission; App Info + Play Store actions still let users uninstall via system UI |
-| `QUERY_ALL_PACKAGES` | **Keep** | Core launcher function; an approved Play justification — needs declaration form |
+| `QUERY_ALL_PACKAGES` | **Drop → replace with `<queries>`** | A launcher only needs MAIN/LAUNCHER (+ icon-pack theme) intent visibility; `<queries>` covers it with NO sensitive permission and NO declaration form (revised after Bucket 1 audit) |
+| R8 minify / resource shrink | **Skip for v1** | Not required by Play; icon-pack reflection (~`T9Activity.kt:913`) would need keep rules. Add later if size matters |
+| PerfTrace.kt | **Delete** | Debug-only profiling tool; deletion removes the file + its thread-safety smells |
 | App signing | **Play App Signing** | Google holds the app key; we upload with an upload key |
-| Distribution | **Play primary, keep GitHub** | Future-proof channel + existing power users; two signing keys coexist |
+| Distribution | **Play primary, keep GitHub** | Future-proof channel + existing power users; two signing keys coexist. CI keeps building APK for GitHub; AAB built separately for Play |
 | Monetization | **Deferred** | Not the driver; don't preclude, don't build now |
 | Scope | **Ship + light polish** | Fix obvious rough edges in-pass; no speculative work |
 
@@ -50,14 +52,20 @@ uninstall + reinstall (losing `allowBackup` prefs). Accepted.
 1. **Production-readiness audit** *(triage)* — Android/Kotlin review via
    `android-developer` + `code-reviewer` agents → prioritized punch-list
    (Blocker / Polish / Deferred). Shapes all later buckets.
-2. **Permission surgery** *(code)* — remove uninstall + `REQUEST_DELETE_PACKAGES`;
-   remove stale manifest version attrs; apply quick Blocker fixes from Bucket 1.
-3. **Release build ready** *(build)* — upload key + signing config; enable R8 minify
-   + resource shrink for release; bump `targetSdk`/`compileSdk` to Play's current
-   minimum (verify exact number at build time); bump version for launch; produce a
-   signed **AAB** and confirm it builds + installs.
+2. **Code & manifest hardening** *(code)* — (a) remove uninstall + `REQUEST_DELETE_PACKAGES`;
+   (b) drop `QUERY_ALL_PACKAGES`, add `<queries>` for MAIN/LAUNCHER + icon-pack theme intents;
+   (c) delete `PerfTrace.kt` + its calls; (d) 5 stability fixes from audit
+   (`iconPackMappings`→ConcurrentHashMap, icon-pack parse off main thread, `getDrawable`
+   off IO thread, span `matchEnd` clamp, About `getPackageInfo` guard); (e) dead-code
+   deletion (`debugLog`, `loadIconForApp`); (f) manifest cleanup (strip stale version
+   attrs + `<uses-sdk>`, `label`→`@string/app_name`, `allowBackup="false"`).
+   Verify: app discovery + icon packs still work after the `<queries>` switch.
+3. **Release build ready** *(build)* — upload key + signing config; bump
+   `targetSdk`/`compileSdk` to Play's current minimum (verify exact number at build time);
+   bump version for launch; produce a signed **AAB** and confirm it builds + installs.
+   (R8 skipped for v1.)
 4. **Compliance content** *(docs)* — minimal privacy policy hosted on GitHub Pages;
-   Data Safety answers (all "no"); `QUERY_ALL_PACKAGES` permission declaration text.
+   Data Safety answers (all "no"). (No `QUERY_ALL_PACKAGES` declaration needed — dropped.)
 5. **Store listing + light polish** *(content)* — title, short + full description,
    category, content-rating answers, and exact asset spec (icon 512², phone
    screenshots, feature graphic 1024×500); plus light-polish fixes (repo owner,
