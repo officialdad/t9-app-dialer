@@ -4,6 +4,12 @@ on:
   push:
     tags:
       - "v*" # Trigger on version tags like v1.0.0
+  release:
+    # release-please publishes the release and creates its tag through the API,
+    # which emits no push event, so the tag alone would not start this build.
+    # softprops/action-gh-release finds that release by tag and attaches the
+    # APK to it instead of creating a second one.
+    types: [published]
   workflow_dispatch: # Allow manual trigger
 
 permissions:
